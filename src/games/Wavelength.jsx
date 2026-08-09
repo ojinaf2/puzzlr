@@ -86,7 +86,7 @@ export default function Wavelength() {
       {phase === "done" && (
         <>
           <h2 style={hStyle}>{totalP1 === totalP2 ? "It's a tie!" : `Player ${totalP1 > totalP2 ? 1 : 2} wins!`}</h2>
-          <p style={pStyle}>P1: {totalP1} &nbsp;\u2022&nbsp; P2: {totalP2}</p>
+          <p style={pStyle}>P1: {totalP1} &nbsp;•&nbsp; P2: {totalP2}</p>
           <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Play again</Btn>
         </>
       )}
