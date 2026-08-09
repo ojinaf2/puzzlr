@@ -1,0 +1,10 @@
+/* Intentionally almost empty.
+
+   Puzzlr styles itself entirely with inline styles and one <style> block inside
+   the component, so the usual Vite template CSS (centred flexbox, max-widths,
+   dark-mode media queries) is deliberately gone — it fought the layout.
+
+   The only rule kept is the browser's default 8px body margin reset, without
+   which the sticky header and footer would not reach the edges of the page. */
+
+html, body { margin: 0; padding: 0; }
