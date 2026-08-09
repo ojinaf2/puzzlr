@@ -3,6 +3,7 @@ import Wavelength from './Wavelength.jsx';
 import TicTacToe from './TicTacToe.jsx';
 import FlagQuiz from './FlagQuiz.jsx';
 import ConnectFour from './ConnectFour.jsx';
+import Imposter from './Imposter.jsx';
 
 /* ============================= GAME REGISTRY =============================
 
@@ -35,6 +36,8 @@ export const GAMES = [
     icon: (<g><line x1="16" y1="8" x2="16" y2="40" stroke="#9c7a54" strokeWidth="2.5"/><path d="M16 10 L40 10 L34 18 L40 26 L16 26 Z" fill="#d4a13c"/></g>) },
   { id: "connect4", name: "Connect 4", tag: "Four in a row", accent: "#1b64d4", players: "2 players", Comp: ConnectFour,
     icon: (<g><rect x="7" y="12" width="38" height="30" rx="5" fill="#1b64d4"/><circle cx="17" cy="22" r="5" fill="#fdf6e9"/><circle cx="26" cy="22" r="5" fill="#f6c31c"/><circle cx="35" cy="22" r="5" fill="#fdf6e9"/><circle cx="17" cy="34" r="5" fill="#d62828"/><circle cx="26" cy="34" r="5" fill="#d62828"/><circle cx="35" cy="34" r="5" fill="#f6c31c"/></g>) },
+  { id: "imposter", name: "Imposter", tag: "Spot the faker", accent: "#c0492f", players: "3-10 players", Comp: Imposter,
+    icon: (<g><circle cx="18" cy="18" r="6.5" fill="#b79b7e"/><path d="M8 38c0-5.5 4.5-10 10-10s10 4.5 10 10z" fill="#b79b7e"/><circle cx="34" cy="24" r="6.5" fill="#c0492f"/><path d="M24 44c0-5.5 4.5-10 10-10s10 4.5 10 10z" fill="#c0492f"/></g>) },
 ];
 
 export default GAMES;
