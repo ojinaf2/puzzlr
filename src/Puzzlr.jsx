@@ -8,6 +8,10 @@ import { GAMES } from './games/index.jsx';
    game lives in src/games/ and is registered in src/games/index.jsx. */
 const HUB_NAME = "Puzzlr";
 
+// Landing copy counts the games itself, so adding one to the registry keeps it honest.
+const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+const countWord = (n) => NUMBER_WORDS[n] ?? String(n);
+
 function GameCard({ game, onClick }) {
   const [hover, setHover] = useState(false);
   return (
@@ -37,7 +41,7 @@ function Landing({ onPick }) {
           Play, guess,<br />and outsmart a friend.
         </h1>
         <p style={{ color: C.dim, fontSize: 16, maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-          Four hand-built games in one place. No sign-up, no timer pressure. Just open one and go.
+          {countWord(GAMES.length)} hand-built games in one place. No sign-up, no timer pressure. Just open one and go.
         </p>
       </section>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, paddingBottom: 60 }}>

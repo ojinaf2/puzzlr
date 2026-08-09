@@ -2,6 +2,7 @@ import Wordle from './Wordle.jsx';
 import Wavelength from './Wavelength.jsx';
 import TicTacToe from './TicTacToe.jsx';
 import FlagQuiz from './FlagQuiz.jsx';
+import ConnectFour from './ConnectFour.jsx';
 
 /* ============================= GAME REGISTRY =============================
 
@@ -32,6 +33,8 @@ export const GAMES = [
     icon: (<g stroke="#9c7a54" strokeWidth="2.5"><line x1="22" y1="10" x2="22" y2="42"/><line x1="32" y1="10" x2="32" y2="42"/><line x1="12" y1="20" x2="42" y2="20"/><line x1="12" y1="32" x2="42" y2="32"/><text x="13" y="19" fill="#6c8cff" stroke="none" fontSize="11" fontWeight="800">X</text><text x="34" y="41" fill="#e5604d" stroke="none" fontSize="11" fontWeight="800">O</text></g>) },
   { id: "flags", name: "Flag Quiz", tag: "Guess the country", accent: "#d4a13c", players: "1 player", Comp: FlagQuiz,
     icon: (<g><line x1="16" y1="8" x2="16" y2="40" stroke="#9c7a54" strokeWidth="2.5"/><path d="M16 10 L40 10 L34 18 L40 26 L16 26 Z" fill="#d4a13c"/></g>) },
+  { id: "connect4", name: "Connect 4", tag: "Four in a row", accent: "#1b64d4", players: "2 players", Comp: ConnectFour,
+    icon: (<g><rect x="7" y="12" width="38" height="30" rx="5" fill="#1b64d4"/><circle cx="17" cy="22" r="5" fill="#fdf6e9"/><circle cx="26" cy="22" r="5" fill="#f6c31c"/><circle cx="35" cy="22" r="5" fill="#fdf6e9"/><circle cx="17" cy="34" r="5" fill="#d62828"/><circle cx="26" cy="34" r="5" fill="#d62828"/><circle cx="35" cy="34" r="5" fill="#f6c31c"/></g>) },
 ];
 
 export default GAMES;
