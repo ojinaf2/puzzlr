@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { C } from './shared/theme.js';
 import { Btn } from './shared/ui.jsx';
+import { useRoute, buildPath } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
 
 /* ============================= HUB SHELL =============================
@@ -12,11 +13,18 @@ const HUB_NAME = "Puzzlr";
 const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 const countWord = (n) => NUMBER_WORDS[n] ?? String(n);
 
+/* A real link, so cards can be opened in a new tab, copied or shared. Plain
+   left-clicks are intercepted and handled by the router instead. */
 function GameCard({ game, onClick }) {
   const [hover, setHover] = useState(false);
+  const handle = (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    onClick();
+  };
   return (
-    <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ background: C.panel, border: `1px solid ${hover ? game.accent : C.line}`, borderRadius: 16, padding: "22px 20px", cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 14, transition: "transform .15s, border-color .15s", transform: hover ? "translateY(-4px)" : "none", color: C.text, fontFamily: "inherit" }}>
+    <a href={buildPath(game.id)} onClick={handle} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ background: C.panel, border: `1px solid ${hover ? game.accent : C.line}`, borderRadius: 16, padding: "22px 20px", cursor: "pointer", textAlign: "left", display: "flex", flexDirection: "column", gap: 14, transition: "transform .15s, border-color .15s", transform: hover ? "translateY(-4px)" : "none", color: C.text, fontFamily: "inherit", textDecoration: "none" }}>
       <div style={{ width: 52, height: 52, borderRadius: 12, background: "#eacfa5", display: "grid", placeItems: "center" }}>
         <svg viewBox="0 0 52 52" width="40" height="40">{game.icon}</svg>
       </div>
@@ -28,7 +36,7 @@ function GameCard({ game, onClick }) {
         <span style={{ fontSize: 12, color: C.dim, background: C.bg, padding: "3px 9px", borderRadius: 20 }}>{game.players}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: game.accent }}>Play →</span>
       </div>
-    </button>
+    </a>
   );
 }
 
@@ -53,10 +61,15 @@ function Landing({ onPick }) {
 
 /* ============================= ROOT APP ============================= */
 export default function App() {
-  const [route, setRoute] = useState("home");
-  const game = GAMES.find((g) => g.id === route);
+  const [{ gameId, roomCode }, navigate] = useRoute();
+  const game = GAMES.find((g) => g.id === gameId);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [route]);
+  // An unknown game in the URL falls back to the landing page rather than a blank screen.
+  useEffect(() => {
+    if (gameId && !game) navigate(null, null, { replace: true });
+  }, [gameId, game, navigate]);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [gameId, roomCode]);
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Libre Franklin', 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
@@ -76,20 +89,24 @@ export default function App() {
 
       <header style={{ borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, background: "rgba(255,255,255,.9)", backdropFilter: "blur(8px)", zIndex: 10 }}>
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-          <button onClick={() => setRoute("home")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, color: C.text, fontFamily: "inherit", padding: 0 }}>
+          <a href="/" onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); navigate(null); }}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, color: C.text, fontFamily: "inherit", padding: 0, textDecoration: "none" }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${C.accent}, ${C.accent2})`, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 17, color: "#fff" }}>P</div>
             <span style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 23, fontWeight: 700 }}>{HUB_NAME}</span>
-          </button>
+          </a>
           {game && <><span style={{ color: C.line }}>/</span><span style={{ fontSize: 15, fontWeight: 700, color: game.accent }}>{game.name}</span></>}
+          {roomCode && <span style={{ fontSize: 12, fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em" }}>{roomCode}</span>}
           <div style={{ flex: 1 }} />
-          {game && <Btn variant="subtle" onClick={() => setRoute("home")}>← All games</Btn>}
+          {game && <Btn variant="subtle" onClick={() => navigate(null)}>← All games</Btn>}
         </div>
       </header>
 
       <main style={{ padding: game ? "28px 20px 60px" : 0 }}>
-        {!game ? <Landing onPick={setRoute} /> : (
+        {!game ? <Landing onPick={(id) => navigate(id)} /> : (
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <game.Comp />
+            {/* roomCode and navigate are passed down for the online modes; the
+                local-only games simply ignore them. */}
+            <game.Comp key={game.id} roomCode={roomCode} navigate={navigate} />
           </div>
         )}
       </main>
