@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, Centered } from '../shared/ui.jsx';
+import { makeRoomCode } from '../shared/router.js';
+import { RoomStatus, lobbyView } from '../shared/online.jsx';
+import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= CONNECT 4 =============================
    Pass-and-play for 2. Drawn as a single SVG so it reads like the real
@@ -33,62 +36,27 @@ const WIN_LINES = (() => {
   return lines;
 })();
 
-export default function ConnectFour() {
-  const [board, setBoard] = useState(() => Array(ROWS * COLS).fill(null));
-  const [redNext, setRedNext] = useState(true);
-  const [wins, setWins] = useState({ R: 0, Y: 0 });
-  const [lastMove, setLastMove] = useState(null);
+const c4Style = `
+  @keyframes c4drop { from { transform: translateY(var(--c4-drop)); } to { transform: translateY(0); } }
+  .c4-drop { animation: c4drop .4s cubic-bezier(.34,.02,.5,1); }
+  @keyframes c4pulse { 0%,100% { opacity: .95 } 50% { opacity: .25 } }
+  .c4-win { animation: c4pulse 1.1s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .c4-drop, .c4-win { animation: none !important; } }
+`;
+
+export default function ConnectFour({ roomCode, navigate }) {
+  if (roomCode) return <OnlineConnectFour roomCode={roomCode} navigate={navigate} />;
+  return <LocalConnectFour navigate={navigate} />;
+}
+
+/* The board itself, shared by both modes. It knows nothing about whose turn it
+   is — `disabled` decides whether columns respond. */
+function C4Board({ board, lastMove, winLine, onDrop, disabled, turnColour }) {
   const [hoverCol, setHoverCol] = useState(null);
-
-  const winner = useMemo(() => {
-    for (const line of WIN_LINES) {
-      const [a, b, c, d] = line;
-      if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d]) return { who: board[a], line };
-    }
-    return null;
-  }, [board]);
-  const full = board.every(Boolean);
-
-  useEffect(() => { if (winner) setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); }, [winner]);
-
-  const drop = (col) => {
-    if (winner) return;
-    for (let r = ROWS - 1; r >= 0; r--) {          // fall to the lowest free slot
-      const i = idx(r, col);
-      if (!board[i]) {
-        const nb = [...board]; nb[i] = redNext ? "R" : "Y";
-        setBoard(nb); setRedNext(!redNext); setLastMove(i);
-        return;
-      }
-    }
-  };
-  const reset = () => { setBoard(Array(ROWS * COLS).fill(null)); setRedNext(true); setLastMove(null); };
-
   const colFull = (c) => !!board[idx(0, c)];
-  const turnColour = redNext ? RED : YELLOW;
 
   return (
-    <Centered>
-      <style>{`
-        @keyframes c4drop { from { transform: translateY(var(--c4-drop)); } to { transform: translateY(0); } }
-        .c4-drop { animation: c4drop .4s cubic-bezier(.34,.02,.5,1); }
-        @keyframes c4pulse { 0%,100% { opacity: .95 } 50% { opacity: .25 } }
-        .c4-win { animation: c4pulse 1.1s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .c4-drop, .c4-win { animation: none !important; } }
-      `}</style>
-
-      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, alignItems: "center" }}>
-        <span style={{ color: RED, fontWeight: 800 }}>Red &nbsp;{wins.R}</span>
-        <span style={{ color: C.dim }}>vs</span>
-        <span style={{ color: "#b58900", fontWeight: 800 }}>Yellow &nbsp;{wins.Y}</span>
-      </div>
-      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
-        {winner
-          ? <b style={{ color: winner.who === "R" ? RED : "#b58900" }}>{winner.who === "R" ? "Red" : "Yellow"} wins!</b>
-          : full ? "Draw." : <>Turn: <b style={{ color: redNext ? RED : "#b58900" }}>{redNext ? "Red" : "Yellow"}</b></>}
-      </div>
-
-      <svg viewBox={`0 0 ${BOARD_W} ${VIEW_H}`} style={{ width: "100%", maxWidth: BOARD_W, height: "auto", touchAction: "manipulation" }}>
+    <svg viewBox={`0 0 ${BOARD_W} ${VIEW_H}`} style={{ width: "100%", maxWidth: BOARD_W, height: "auto", touchAction: "manipulation" }}>
         <defs>
           {/* Punch the grid of holes out of the board face. */}
           <mask id="c4-holes">
@@ -131,31 +99,141 @@ export default function ConnectFour() {
             fill="none" stroke="rgba(0,0,0,.18)" strokeWidth="2" />
         ))}
 
-        {/* 5. Ring the winning four. */}
-        {winner && winner.line.map((i) => (
-          <circle key={`w${i}`} className="c4-win" cx={cx(i % COLS)} cy={cy(Math.floor(i / COLS))} r={HOLE - 5}
-            fill="none" stroke="#fff" strokeWidth="4" />
-        ))}
+      {/* 5. Ring the winning four. */}
+      {winLine && winLine.map((i) => (
+        <circle key={`w${i}`} className="c4-win" cx={cx(i % COLS)} cy={cy(Math.floor(i / COLS))} r={HOLE - 5}
+          fill="none" stroke="#fff" strokeWidth="4" />
+      ))}
 
-        {/* 6. Hover preview + full-column click targets. */}
-        {hoverCol !== null && !winner && !colFull(hoverCol) && (
-          <circle cx={cx(hoverCol)} cy={GHOST / 2} r={DISC} fill={turnColour} opacity=".55" />
+      {/* 6. Hover preview + full-column click targets. */}
+      {hoverCol !== null && !disabled && !colFull(hoverCol) && (
+        <circle cx={cx(hoverCol)} cy={GHOST / 2} r={DISC} fill={turnColour} opacity=".55" />
+      )}
+      {Array.from({ length: COLS }).map((_, c) => {
+        const dead = disabled || colFull(c);
+        return (
+          <rect key={`h${c}`} x={PAD + c * CELL} y="0" width={CELL} height={VIEW_H}
+            fill="transparent" style={{ cursor: dead ? "default" : "pointer" }}
+            role="button" tabIndex={dead ? -1 : 0}
+            aria-label={`Drop in column ${c + 1}`}
+            onMouseEnter={() => setHoverCol(c)} onMouseLeave={() => setHoverCol(null)}
+            onClick={() => { if (!dead) onDrop(c); }}
+            onKeyDown={(e) => { if (!dead && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onDrop(c); } }} />
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ------------------------------ same device ------------------------------ */
+function LocalConnectFour({ navigate }) {
+  const [board, setBoard] = useState(() => Array(ROWS * COLS).fill(null));
+  const [redNext, setRedNext] = useState(true);
+  const [wins, setWins] = useState({ R: 0, Y: 0 });
+  const [lastMove, setLastMove] = useState(null);
+
+  const winner = useMemo(() => {
+    for (const line of WIN_LINES) {
+      const [a, b, c, d] = line;
+      if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d]) return { who: board[a], line };
+    }
+    return null;
+  }, [board]);
+  const full = board.every(Boolean);
+
+  useEffect(() => { if (winner) setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); }, [winner]);
+
+  const drop = (col) => {
+    if (winner) return;
+    for (let r = ROWS - 1; r >= 0; r--) {          // fall to the lowest free slot
+      const i = idx(r, col);
+      if (!board[i]) {
+        const nb = [...board]; nb[i] = redNext ? "R" : "Y";
+        setBoard(nb); setRedNext(!redNext); setLastMove(i);
+        return;
+      }
+    }
+  };
+  const reset = () => { setBoard(Array(ROWS * COLS).fill(null)); setRedNext(true); setLastMove(null); };
+
+  return (
+    <Centered>
+      <style>{c4Style}</style>
+      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, alignItems: "center" }}>
+        <span style={{ color: RED, fontWeight: 800 }}>Red &nbsp;{wins.R}</span>
+        <span style={{ color: C.dim }}>vs</span>
+        <span style={{ color: "#b58900", fontWeight: 800 }}>Yellow &nbsp;{wins.Y}</span>
+      </div>
+      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+        {winner
+          ? <b style={{ color: winner.who === "R" ? RED : "#b58900" }}>{winner.who === "R" ? "Red" : "Yellow"} wins!</b>
+          : full ? "Draw." : <>Turn: <b style={{ color: redNext ? RED : "#b58900" }}>{redNext ? "Red" : "Yellow"}</b></>}
+      </div>
+
+      <C4Board board={board} lastMove={lastMove} winLine={winner?.line} onDrop={drop}
+        disabled={!!winner || full} turnColour={redNext ? RED : YELLOW} />
+
+      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
+        <Btn onClick={reset} variant="ghost">{winner || full ? "Play again" : "Reset board"}</Btn>
+        {roomServerUrl() && (
+          <Btn variant="subtle" onClick={() => navigate('connect4', makeRoomCode())}>Play online instead</Btn>
         )}
-        {Array.from({ length: COLS }).map((_, c) => {
-          const disabled = !!winner || colFull(c);
-          return (
-            <rect key={`h${c}`} x={PAD + c * CELL} y="0" width={CELL} height={VIEW_H}
-              fill="transparent" style={{ cursor: disabled ? "default" : "pointer" }}
-              role="button" tabIndex={disabled ? -1 : 0}
-              aria-label={`Drop in column ${c + 1}`}
-              onMouseEnter={() => setHoverCol(c)} onMouseLeave={() => setHoverCol(null)}
-              onClick={() => drop(c)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); drop(c); } }} />
-          );
-        })}
-      </svg>
+      </div>
+    </Centered>
+  );
+}
 
-      <Btn onClick={reset} variant="ghost" style={{ marginTop: 16 }}>{winner || full ? "Play again" : "Reset board"}</Btn>
+/* -------------------------------- online -------------------------------- */
+function OnlineConnectFour({ roomCode, navigate }) {
+  const [name, setName] = useState(() => savedName());
+  const { status, room, me, playerId, error, send } = useRoom({ gameId: 'connect4', roomCode, name });
+
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'connect4', navigate, name, onName: setName });
+  if (lobby) return lobby;
+
+  const g = room.game;
+  const opponent = room.players.find((p) => p.id !== playerId);
+  const myColour = me.seat === 0 ? RED : YELLOW;
+  const myName = me.seat === 0 ? 'Red' : 'Yellow';
+  const myTurn = room.status === 'playing' && g.turnSeat === me.seat;
+  const over = room.status === 'over';
+  const seatOf = (n) => room.players.find((p) => p.seat === n);
+  const stale = opponent && !opponent.connected && Date.now() - opponent.lastSeen > 90000;
+
+  return (
+    <Centered>
+      <style>{c4Style}</style>
+      <RoomStatus status={status} error={error} />
+
+      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+        <span style={{ color: RED, fontWeight: 800 }}>{seatOf(0)?.name ?? '—'} &nbsp;{g.wins[seatOf(0)?.id] ?? 0}</span>
+        <span style={{ color: C.dim }}>vs</span>
+        <span style={{ color: "#b58900", fontWeight: 800 }}>{seatOf(1)?.name ?? '—'} &nbsp;{g.wins[seatOf(1)?.id] ?? 0}</span>
+      </div>
+
+      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+        {over && g.forfeitedBy ? <b style={{ color: C.accent }}>{opponent?.name} left — you win</b>
+          : over && g.winner ? <b style={{ color: g.winner === playerId ? C.correct : C.danger }}>{g.winner === playerId ? 'You win!' : `${opponent?.name ?? 'They'} win`}</b>
+          : over && g.draw ? "Draw."
+          : myTurn ? <b style={{ color: myColour }}>Your turn ({myName})</b>
+          : <>Waiting for {opponent?.name ?? 'them'}…</>}
+      </div>
+
+      {opponent && !opponent.connected && !over && (
+        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: 13.5, textAlign: "center", maxWidth: 380 }}>
+          {opponent.name} lost connection. Their seat is held while they reconnect.
+          {stale && <div style={{ marginTop: 8 }}><Btn variant="ghost" style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn></div>}
+        </div>
+      )}
+
+      <C4Board board={g.board} lastMove={g.lastMove} winLine={g.line}
+        onDrop={(c) => send({ type: 'move', column: c })}
+        disabled={!myTurn || over} turnColour={myColour} />
+
+      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
+        {over && <Btn onClick={() => send({ type: 'rematch' })}>Play again</Btn>}
+        <Btn variant="subtle" onClick={() => navigate('connect4')}>Leave room</Btn>
+      </div>
     </Centered>
   );
 }

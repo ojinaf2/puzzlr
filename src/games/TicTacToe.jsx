@@ -74,11 +74,11 @@ function LocalTicTacToe({ navigate }) {
 
 /* -------------------------------- online -------------------------------- */
 function OnlineTicTacToe({ roomCode, navigate }) {
-  const [name] = useState(() => savedName());
+  const [name, setName] = useState(() => savedName());
   const { status, room, me, playerId, error, send } = useRoom({ gameId: 'tictactoe', roomCode, name });
 
   // Every hook has run by now, so it is safe to bail out into a waiting screen.
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'tictactoe', navigate });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'tictactoe', navigate, name, onName: setName });
   if (lobby) return lobby;
 
   const g = room.game;

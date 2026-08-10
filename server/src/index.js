@@ -181,12 +181,11 @@ export class Room {
     player.connected = false;
     player.lastSeen = Date.now();
 
-    // Nobody left in the lobby means the room may as well be thrown away.
-    const anyoneLeft = room.players.some((p) => p.connected);
-    if (!anyoneLeft && room.status === 'lobby') {
-      await this.ctx.storage.deleteAll();
-      return;
-    }
+    // An empty room is deliberately NOT deleted here. Whoever made it has
+    // probably already sent the link out, and a host whose phone locks for a
+    // moment should come back to the same room rather than a dead invite.
+    // The idle alarm clears it up later instead.
+
     // The host leaving should not strand everyone else.
     if (room.hostId === playerId) {
       const heir = room.players.find((p) => p.connected);

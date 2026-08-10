@@ -178,6 +178,24 @@ console.log('\n— rooms are namespaced by code —');
   d.close();
 }
 
+console.log('\n— a room survives its creator dropping out —');
+{
+  const host = await connect('LOBBY1');
+  host.send({ type: 'join', code: 'LOBBY1', gameId: 'tictactoe', playerId: 'p-host', name: 'Host' });
+  await host.nextState();
+  host.close();                                   // sole occupant of the lobby vanishes
+  await new Promise((r) => setTimeout(r, 300));
+
+  // Someone opens the invite link that was already shared.
+  const guest = await connect('LOBBY1');
+  guest.send({ type: 'join', code: 'LOBBY1', gameId: 'tictactoe', playerId: 'p-guest', name: 'Guest' });
+  const s = await guest.nextState();
+  const stillThere = s.room.players.find((p) => p.id === 'p-host');
+  check('the invite link still leads to the same room', !!stillThere, JSON.stringify(s.room.players.map((p) => p.id)));
+  check('and it fills up rather than starting empty', s.room.players.length === 2, String(s.room.players.length));
+  guest.close();
+}
+
 console.log('\n— a mismatched game id is rejected —');
 {
   const e = await connect('QQQQQQ');

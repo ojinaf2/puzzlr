@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { C } from './theme.js';
 import { Btn, Centered, hStyle, pStyle } from './ui.jsx';
+import { saveName } from './useRoom.js';
 
 /* Pieces every online game needs: an invite link to share, a connection
    banner, and the waiting-room screens shown before play begins. */
@@ -35,6 +36,34 @@ export function InviteLink({ gameId, roomCode }) {
   );
 }
 
+/* Asked once, then remembered. Other players see this name, so it is worth
+   collecting before joining rather than labelling everyone "Player 2". */
+export function NameEntry({ initial, onDone }) {
+  const [value, setValue] = useState(initial || '');
+  const clean = value.trim().slice(0, 14);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!clean) return;
+    saveName(clean);
+    onDone(clean);
+  };
+
+  return (
+    <Centered>
+      <h2 style={hStyle}>What should we call you?</h2>
+      <p style={pStyle}>The other players will see this. You can change it later.</p>
+      <form onSubmit={submit} style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+        <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus
+          placeholder="Your name" maxLength={14} autoComplete="nickname"
+          style={{ width: "100%", padding: "14px 16px", fontSize: 18, fontFamily: "inherit", color: C.text,
+            background: "#fff", border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
+        <Btn type="submit" disabled={!clean} style={{ opacity: clean ? 1 : .5 }}>Continue</Btn>
+      </form>
+    </Centered>
+  );
+}
+
 export function RoomStatus({ status, error }) {
   const note =
     status === 'reconnecting' ? 'Reconnecting…' :
@@ -51,7 +80,9 @@ export function RoomStatus({ status, error }) {
 /* Screens shown before the game itself can be drawn. Returns null once the
    room is ready to play, so a game can early-return this and then assume
    `room`, `me` and `room.game` all exist. */
-export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitingFor }) {
+export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitingFor, name, onName }) {
+  if (status === 'needs-name') return <NameEntry initial={name} onDone={onName} />;
+
   if (status === 'unconfigured') return (
     <Centered>
       <h2 style={hStyle}>Online play isn't switched on yet</h2>

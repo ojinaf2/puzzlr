@@ -33,7 +33,7 @@ export const myPlayerId = () => {
 export const savedName = () => localStorage.getItem(nameKey) || '';
 export const saveName = (n) => localStorage.setItem(nameKey, n);
 
-/* status: 'connecting' | 'open' | 'reconnecting' | 'offline' | 'unconfigured' */
+/* status: 'needs-name' | 'connecting' | 'open' | 'reconnecting' | 'offline' | 'unconfigured' */
 export function useRoom({ gameId, roomCode, name }) {
   const [status, setStatus] = useState('connecting');
   const [room, setRoom] = useState(null);
@@ -47,6 +47,9 @@ export function useRoom({ gameId, roomCode, name }) {
     if (!roomCode || !gameId) return;
     const base = roomServerUrl();
     if (!base) { setStatus('unconfigured'); return; }
+    // Collect a name before taking a seat, so nobody shows up as "Player 2".
+    if (!name) { setStatus('needs-name'); return; }
+    setStatus('connecting');
 
     closedRef.current = false;
     let heartbeat = null;
