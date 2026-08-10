@@ -38,7 +38,11 @@ export class Room {
   async save(room) {
     room.updatedAt = Date.now();
     await this.ctx.storage.put('room', room);
-    await this.ctx.storage.setAlarm(Date.now() + MAX_IDLE_MS);
+    // One alarm serves two jobs: ending a timed round, and forgetting an idle
+    // room. Whichever comes first wins, and the handler works out which fired.
+    const idleAt = Date.now() + MAX_IDLE_MS;
+    const roundAt = room.status === 'playing' ? room.game?.roundEndsAt : null;
+    await this.ctx.storage.setAlarm(roundAt ? Math.min(idleAt, roundAt) : idleAt);
   }
 
   fresh(code, gameId) {
@@ -141,6 +145,13 @@ export class Room {
       room.game = def.start(room);
     }
 
+    else if (msg.type === 'config') {
+      if (room.hostId !== me.id) return this.sendTo(ws, { type: 'error', message: 'Only the host can change that.' });
+      if (!def.config) return;
+      const result = def.config(room, msg);
+      if (result?.error) return this.sendTo(ws, { type: 'error', message: result.error });
+    }
+
     else if (msg.type === 'move') {
       if (room.status !== 'playing') return;
       const result = def.move(room, me, msg);
@@ -202,12 +213,26 @@ export class Room {
   async alarm() {
     const room = await this.load();
     if (!room) return;
-    if (Date.now() - room.updatedAt >= MAX_IDLE_MS) {
+    const now = Date.now();
+    const def = GAMES[room.gameId];
+
+    // A round clock ran out.
+    if (room.status === 'playing' && room.game?.roundEndsAt && now >= room.game.roundEndsAt && def.timeUp) {
+      const result = def.timeUp(room);
+      if (result?.over) room.status = 'over';
+      await this.save(room);
+      this.broadcast(room);
+      return;
+    }
+
+    if (now - room.updatedAt >= MAX_IDLE_MS) {
       await this.ctx.storage.deleteAll();
       for (const ws of this.ctx.getWebSockets()) {
         try { ws.close(1000, 'Room expired'); } catch { /* ignore */ }
       }
+      return;
     }
+    await this.ctx.storage.setAlarm(now + MAX_IDLE_MS);   // nothing to do yet; look again later
   }
 }
 

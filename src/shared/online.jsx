@@ -80,7 +80,7 @@ export function RoomStatus({ status, error }) {
 /* Screens shown before the game itself can be drawn. Returns null once the
    room is ready to play, so a game can early-return this and then assume
    `room`, `me` and `room.game` all exist. */
-export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitingFor, name, onName }) {
+export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitingFor, name, onName, skipLobby }) {
   if (status === 'needs-name') return <NameEntry initial={name} onDone={onName} />;
 
   if (status === 'unconfigured') return (
@@ -111,7 +111,8 @@ export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitin
     </Centered>
   );
 
-  if (room.status === 'lobby') {
+  // Games with settings to choose draw their own waiting room instead.
+  if (room.status === 'lobby' && !skipLobby) {
     const others = room.players.filter((p) => p.id !== me.id);
     return (
       <Centered>
