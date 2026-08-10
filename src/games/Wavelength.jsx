@@ -2,17 +2,18 @@ import { useState, useCallback, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { rand } from '../shared/utils.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
+import { SPECTRA, scoreForGuess as sharedScore } from '../data/spectra.js';
+import { makeRoomCode } from '../shared/router.js';
+import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
+import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= WAVELENGTH ============================= */
-const SPECTRA = [
-  ["Cold", "Hot"], ["Cheap", "Expensive"], ["Quiet", "Loud"], ["Weird", "Normal"],
-  ["Underrated", "Overrated"], ["Villain", "Hero"], ["Old-fashioned", "Modern"], ["Useless", "Useful"],
-  ["Scary", "Comforting"], ["Casual", "Formal"], ["Common", "Rare"], ["Round", "Pointy"],
-  ["Boring", "Exciting"], ["Dry", "Wet"], ["Simple", "Complicated"], ["Fantasy", "Sci-fi"],
-  ["Unhealthy", "Healthy"], ["Temporary", "Permanent"], ["Guilty pleasure", "Respectable"], ["Slow", "Fast"],
-];
-const BAND_WIDTHS = [4, 3, 2, 1, 2, 3, 4]; // maps to score 2,3,4,(bullseye5),4,3,2 relative bands
-export default function Wavelength() {
+export default function Wavelength({ roomCode, navigate }) {
+  if (roomCode) return <OnlineWavelength roomCode={roomCode} navigate={navigate} />;
+  return <LocalWavelength navigate={navigate} />;
+}
+
+function LocalWavelength({ navigate }) {
   const [phase, setPhase] = useState("intro"); // intro, clue, guess, reveal
   const [spectrum, setSpectrum] = useState(SPECTRA[0]);
   const [target, setTarget] = useState(50);
@@ -28,8 +29,7 @@ export default function Wavelength() {
     setTarget(8 + rand(85)); setGuess(50); setPhase("clue");
   }, []);
 
-  const scoreForGuess = (g, t) => { const d = Math.abs(g - t);
-    if (d <= 3) return 4; if (d <= 8) return 3; if (d <= 15) return 2; return 0; };
+  const scoreForGuess = sharedScore;   // same numbers the room server uses
 
   const doReveal = () => {
     const s = scoreForGuess(guess, target); setLastScore(s);
@@ -48,7 +48,12 @@ export default function Wavelength() {
     <Centered>
       <h2 style={hStyle}>Wavelength</h2>
       <p style={pStyle}>Pass-and-play for 2. One player sees a hidden target on a spectrum and gives a one-word clue. The other slides the dial to guess where it landed. Closer = more points. Six rounds, take turns.</p>
-      <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Start</Btn>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Start</Btn>
+        {roomServerUrl() && (
+          <Btn variant="subtle" onClick={() => navigate('wavelength', makeRoomCode())}>Play online with friends</Btn>
+        )}
+      </div>
     </Centered>
   );
 
@@ -94,7 +99,9 @@ export default function Wavelength() {
   );
 }
 
-function Dial({ left, right, value, onChange, showTarget, target, bands, readOnly }) {
+/* `markers` plots several dials at once, which is how the reveal shows where
+   everybody landed. Each is { value, label }. */
+function Dial({ left, right, value, onChange, showTarget, target, bands, readOnly, markers }) {
   const W = 440, H = 230, cx = W / 2, cy = H - 20, R = 180;
   const toXY = (pct, r = R) => { const ang = Math.PI - (pct / 100) * Math.PI; return [cx + r * Math.cos(ang), cy - r * Math.sin(ang)]; };
   const arcPath = (p0, p1, r) => { const [x0,y0]=toXY(p0,r),[x1,y1]=toXY(p1,r); const large = (p1-p0)>50?1:0; return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`; };
@@ -108,7 +115,19 @@ function Dial({ left, right, value, onChange, showTarget, target, bands, readOnl
         {showTarget && !bands && (() => { const [tx, ty] = toXY(target); return <path d={arcPath(Math.max(0,target-3), Math.min(100,target+3), R)} fill="none" stroke={C.accent2} strokeWidth="34" />; })()}
         {showTarget && (() => { const [tx, ty] = toXY(target, R + 22); const [bx, by] = toXY(target, R - 20);
           return <line x1={bx} y1={by} x2={tx} y2={ty} stroke={C.text} strokeWidth="2" strokeDasharray="4 3" />; })()}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={C.accent} strokeWidth="5" strokeLinecap="round" />
+        {markers ? markers.map((m, i) => {
+          const [mx, my] = toXY(m.value, R - 8);
+          const [lx, ly] = toXY(m.value, R + 16);
+          return (
+            <g key={i}>
+              <line x1={cx} y1={cy} x2={mx} y2={my} stroke={C.accent} strokeWidth="3" strokeLinecap="round" opacity=".75" />
+              <circle cx={mx} cy={my} r="7" fill={C.accent} />
+              <text x={lx} y={ly} textAnchor="middle" fontSize="13" fontWeight="700" fill={C.text}>{m.label}</text>
+            </g>
+          );
+        }) : (
+          <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={C.accent} strokeWidth="5" strokeLinecap="round" />
+        )}
         <circle cx={cx} cy={cy} r="12" fill={C.accent} />
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: C.dim, marginTop: -6 }}>
@@ -117,4 +136,222 @@ function Dial({ left, right, value, onChange, showTarget, target, bands, readOnl
       {!readOnly && <input type="range" min="0" max="100" value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", marginTop: 10, accentColor: C.accent }} />}
     </div>
   );
+}
+
+/* ============================= ONLINE WAVELENGTH =============================
+   Everyone takes a turn giving the clue. Only the clue-giver sees the target;
+   the rest slide their own dial, hidden from each other until the reveal. Each
+   guesser scores on how close they land and the clue-giver takes all of those
+   points added together. */
+
+const capStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+
+function Scoreboard({ room, g, playerId }) {
+  const rows = [...room.players].sort((a, b) => (g.scores[b.id] ?? 0) - (g.scores[a.id] ?? 0));
+  return (
+    <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
+      {rows.map((p) => (
+        <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 14px", borderRadius: 10,
+          background: p.id === g.giverId ? C.panel2 : C.panel, fontSize: 14 }}>
+          <span style={{ fontWeight: 700 }}>
+            {p.name}{p.id === playerId ? ' (you)' : ''}
+            {p.id === g.giverId ? ' — clue' : ''}
+            {!p.connected ? ' ·' : ''}
+          </span>
+          <span style={{ display: "flex", gap: 10 }}>
+            {g.roundPoints?.[p.id] !== undefined && g.phase === 'reveal' &&
+              <span style={{ color: C.correct, fontWeight: 700 }}>+{g.roundPoints[p.id]}</span>}
+            <b style={{ color: C.accent2 }}>{g.scores[p.id] ?? 0}</b>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OnlineWavelength({ roomCode, navigate }) {
+  const [name, setName] = useState(() => savedName());
+  const { status, room, me, playerId, error, send } = useRoom({ gameId: 'wavelength', roomCode, name });
+  const [clueDraft, setClueDraft] = useState("");
+  const [dial, setDial] = useState(50);
+
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'wavelength', navigate, name, onName: setName, skipLobby: true });
+  if (lobby) return lobby;
+
+  const g = room.game;
+  const isHost = room.hostId === playerId;
+
+  /* ------------------------------- lobby ------------------------------- */
+  if (room.status === 'lobby') {
+    return (
+      <Centered>
+        <h2 style={hStyle}>Wavelength</h2>
+        <p style={pStyle}>
+          Everyone takes a turn giving a one-word clue for a target only they can see.
+          The closer people land, the more you all score.
+        </p>
+        <InviteLink gameId="wavelength" roomCode={roomCode} />
+
+        <div style={{ ...capStyle, marginTop: 24, marginBottom: 10 }}>In the room ({room.players.length}/7)</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 18, maxWidth: 400 }}>
+          {room.players.map((p) => (
+            <span key={p.id} style={{ background: C.panel, borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 700 }}>
+              {p.name}{p.id === room.hostId ? ' ★' : ''}
+            </span>
+          ))}
+        </div>
+        <p style={{ ...pStyle, fontSize: 13 }}>
+          {room.players.length < 2
+            ? 'Waiting for at least one more player.'
+            : `${room.players.length} rounds — everyone gives one clue.`}
+        </p>
+        {isHost
+          ? <Btn disabled={room.players.length < 2} style={{ opacity: room.players.length < 2 ? .5 : 1 }}
+              onClick={() => send({ type: 'start' })}>Start game</Btn>
+          : <div style={{ fontSize: 14, color: C.dim }}>Waiting for the host to start…</div>}
+        <Btn variant="subtle" style={{ marginTop: 16 }} onClick={() => navigate('wavelength')}>Leave room</Btn>
+      </Centered>
+    );
+  }
+
+  const giver = room.players.find((p) => p.id === g.giverId);
+  const iAmGiver = g.giverId === playerId;
+  const guessers = room.players.filter((p) => p.id !== g.giverId);
+  const lockedCount = guessers.filter((p) => g.locked?.[p.id]).length;
+  const iLocked = !!g.locked?.[playerId];
+
+  /* ------------------------------ finished ------------------------------ */
+  if (g.phase === 'done') {
+    const ranked = [...room.players].sort((a, b) => (g.scores[b.id] ?? 0) - (g.scores[a.id] ?? 0));
+    const top = g.scores[ranked[0].id] ?? 0;
+    const winners = ranked.filter((p) => (g.scores[p.id] ?? 0) === top);
+    return (
+      <Centered>
+        <div style={{ ...capStyle, marginBottom: 8 }}>Final</div>
+        <h2 style={hStyle}>
+          {winners.length > 1 ? "It's a tie!" : winners[0].id === playerId ? 'You win!' : `${winners[0].name} wins`}
+        </h2>
+        <p style={pStyle}>{g.totalRounds} rounds, everyone gave a clue.</p>
+        <Scoreboard room={room} g={g} playerId={playerId} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {isHost && <Btn onClick={() => send({ type: 'rematch' })}>Play again</Btn>}
+          <Btn variant="subtle" onClick={() => navigate('wavelength')}>Leave room</Btn>
+        </div>
+      </Centered>
+    );
+  }
+
+  /* ------------------------------ in play ------------------------------ */
+  return (
+    <Centered>
+      <RoomStatus status={status} error={error} />
+      <div style={{ display: "flex", gap: 16, fontSize: 13, color: C.dim, marginBottom: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <span>Round {g.round} of {g.totalRounds}</span>
+        <span style={{ color: C.accent2, fontWeight: 700 }}>{giver?.name ?? '—'} is giving the clue</span>
+      </div>
+
+      {/* A vanished clue-giver would otherwise leave the room waiting forever. */}
+      {isHost && giver && !giver.connected && g.phase !== 'reveal' && g.phase !== 'done' && (
+        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 14, fontSize: 13.5, textAlign: "center", maxWidth: 400 }}>
+          {giver.name} has lost connection. Their seat is held for a minute and a half.
+          <div style={{ marginTop: 8 }}>
+            <Btn variant="ghost" style={{ padding: "7px 16px", fontSize: 13 }}
+              onClick={() => send({ type: 'move', action: 'skip' })}>Skip this round</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* ---- the clue-giver thinks of a word ---- */}
+      {g.phase === 'clue' && (iAmGiver ? (
+        <>
+          <p style={pStyle}>
+            Only you can see the target. Give a one-word clue that points at it — the closer everyone
+            lands, the more you score.
+          </p>
+          <Dial left={g.spectrum[0]} right={g.spectrum[1]} showTarget target={g.target} value={g.target} onChange={() => {}} readOnly />
+          <form onSubmit={(e) => { e.preventDefault(); if (clueDraft.trim()) { send({ type: 'move', action: 'clue', clue: clueDraft }); setClueDraft(""); } }}
+            style={{ display: "flex", gap: 10, marginTop: 16, width: "100%", maxWidth: 380, justifyContent: "center", flexWrap: "wrap" }}>
+            <input value={clueDraft} onChange={(e) => setClueDraft(e.target.value)} autoFocus maxLength={40}
+              placeholder="Your clue" autoComplete="off"
+              style={{ flex: "1 1 200px", minWidth: 0, padding: "13px 16px", fontSize: 16, fontFamily: "inherit", color: C.text,
+                background: "#fff", border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
+            <Btn type="submit" disabled={!clueDraft.trim()} style={{ opacity: clueDraft.trim() ? 1 : .5 }}>Send clue</Btn>
+          </form>
+        </>
+      ) : (
+        <>
+          <h2 style={{ ...hStyle, fontSize: 26 }}>{giver?.name} is thinking…</h2>
+          <p style={pStyle}>They can see the target. You will get their clue in a moment.</p>
+          <Dial left={g.spectrum[0]} right={g.spectrum[1]} value={50} onChange={() => {}} readOnly />
+        </>
+      ))}
+
+      {/* ---- everyone else slides a dial ---- */}
+      {g.phase === 'guess' && (
+        <>
+          <div style={{ ...capStyle, marginBottom: 6 }}>The clue</div>
+          <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 34, fontWeight: 700, marginBottom: 14 }}>{g.clue}</div>
+
+          {iAmGiver ? (
+            <>
+              <p style={pStyle}>Sit tight — {lockedCount} of {guessers.length} have locked in.</p>
+              <Dial left={g.spectrum[0]} right={g.spectrum[1]} showTarget target={g.target} value={g.target} onChange={() => {}} readOnly />
+            </>
+          ) : (
+            <>
+              <Dial left={g.spectrum[0]} right={g.spectrum[1]}
+                value={g.guesses?.[playerId] ?? dial}
+                onChange={(v) => { setDial(v); send({ type: 'move', action: 'guess', value: v }); }}
+                readOnly={iLocked} />
+              <div style={{ marginTop: 14 }}>
+                {iLocked
+                  ? <span style={{ fontSize: 14, color: C.dim }}>Locked in — waiting for the others ({lockedCount}/{guessers.length})</span>
+                  : <Btn onClick={() => send({ type: 'move', action: 'lock' })}>Lock in guess</Btn>}
+              </div>
+            </>
+          )}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 14 }}>
+            {guessers.map((p) => (
+              <span key={p.id} style={{ fontSize: 12, background: g.locked?.[p.id] ? C.panel2 : C.panel,
+                borderRadius: 20, padding: "4px 12px", color: g.locked?.[p.id] ? C.text : C.dim }}>
+                {p.name}{g.locked?.[p.id] ? ' ✓' : '…'}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ---- everything turned over ---- */}
+      {g.phase === 'reveal' && (
+        <>
+          <div style={{ ...capStyle, marginBottom: 6 }}>The clue was</div>
+          <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 30, fontWeight: 700, marginBottom: 10 }}>{g.clue}</div>
+          <Dial left={g.spectrum[0]} right={g.spectrum[1]} showTarget target={g.target} readOnly
+            bands={revealBands(g.target)}
+            markers={guessers
+              .filter((p) => g.guesses?.[p.id] !== undefined)
+              .map((p) => ({ value: g.guesses[p.id], label: p.name.slice(0, 6) }))} />
+          <p style={{ ...pStyle, marginTop: 16 }}>
+            The target was at {g.target}. {giver?.name} scored {g.roundPoints?.[g.giverId] ?? 0} from everyone combined.
+          </p>
+          <Scoreboard room={room} g={g} playerId={playerId} />
+          {(isHost || iAmGiver)
+            ? <Btn onClick={() => send({ type: 'move', action: 'next' })}>
+                {g.round >= g.totalRounds ? 'See final scores' : 'Next round'}
+              </Btn>
+            : <div style={{ fontSize: 14, color: C.dim }}>Waiting for the host…</div>}
+        </>
+      )}
+
+      <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => navigate('wavelength')}>Leave room</Btn>
+    </Centered>
+  );
+}
+
+/* The coloured scoring bands around the target, same shape as the local game. */
+function revealBands(target) {
+  const spans = [[-15,-8,C.gold,2],[-8,-3,C.danger,3],[-3,3,C.accent2,4],[3,8,C.danger,3],[8,15,C.gold,2]];
+  return spans.map(([lo, hi, col, pts]) => ({
+    lo: Math.max(0, target + lo), hi: Math.min(100, target + hi), col, pts,
+  }));
 }

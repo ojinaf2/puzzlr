@@ -18,6 +18,7 @@
 // Shared with the browser build rather than copied, so the two can never drift.
 import { validSet as VALID, answerList as ANSWERS } from '../../src/data/words.js';
 import { COUNTRIES } from '../../src/data/countries.js';
+import { SPECTRA, scoreForGuess } from '../../src/data/spectra.js';
 
 const LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -504,4 +505,170 @@ const flagquiz = {
   },
 };
 
-export const GAMES = { tictactoe, connect4, wordle, flagquiz };
+/* ------------------------------- wavelength -------------------------------
+   Players take it in turns to give a clue. The clue-giver alone sees where the
+   target sits; everyone else slides their own dial to guess. Each guesser
+   scores on how close they land, and the clue-giver takes all of their points
+   added together — so a clue that works for the whole room is worth the most.
+   Everybody gives exactly one clue, so a room of seven plays seven rounds. */
+const WL_MIN_TARGET = 8, WL_TARGET_SPREAD = 85;
+
+const wavelengthRound = (order, round) => ({
+  spectrum: SPECTRA[Math.floor(Math.random() * SPECTRA.length)],
+  target: WL_MIN_TARGET + Math.floor(Math.random() * WL_TARGET_SPREAD),
+  giverId: order[(round - 1) % order.length],
+  clue: null,
+  guesses: {},
+  locked: {},
+  roundPoints: {},
+});
+
+const wavelength = {
+  maxPlayers: 7,
+  minPlayers: 2,
+  autoStart: false,
+
+  create: () => ({
+    phase: 'clue',              // clue | guess | reveal | done
+    round: 0,
+    totalRounds: 0,
+    order: [],
+    spectrum: SPECTRA[0],
+    target: 50,
+    giverId: null,
+    clue: null,
+    guesses: {},
+    locked: {},
+    roundPoints: {},
+    scores: {},
+    roundNo: 0,
+  }),
+
+  start(room) {
+    // Everyone gives exactly one clue, in the order they joined.
+    const order = room.players.map((p) => p.id);
+    return {
+      ...wavelengthRound(order, 1),
+      phase: 'clue',
+      round: 1,
+      totalRounds: order.length,
+      order,
+      scores: Object.fromEntries(order.map((id) => [id, 0])),
+      roundNo: 1,
+    };
+  },
+
+  deadline: () => null,        // played at the group's own pace
+
+  move(room, player, msg) {
+    const g = room.game;
+
+    if (msg.action === 'clue') {
+      if (g.phase !== 'clue') return { error: 'Not the moment for a clue.' };
+      if (player.id !== g.giverId) return { error: 'Someone else is giving the clue.' };
+      const clue = String(msg.clue ?? '').trim().slice(0, 40);
+      if (!clue) return { error: 'Give them something to go on.' };
+      g.clue = clue;
+      g.phase = 'guess';
+      return {};
+    }
+
+    if (msg.action === 'guess') {
+      if (g.phase !== 'guess') return { error: 'Not the moment for guessing.' };
+      if (player.id === g.giverId) return { error: 'You gave the clue.' };
+      if (g.locked[player.id]) return { error: 'You have locked yours in.' };
+      const value = Number(msg.value);
+      if (!Number.isFinite(value) || value < 0 || value > 100) return { error: 'Off the dial.' };
+      g.guesses[player.id] = Math.round(value);
+      return {};
+    }
+
+    if (msg.action === 'lock') {
+      if (g.phase !== 'guess') return { error: 'Not the moment for guessing.' };
+      if (player.id === g.giverId) return { error: 'You gave the clue.' };
+      if (g.guesses[player.id] === undefined) g.guesses[player.id] = 50;
+      g.locked[player.id] = true;
+
+      const guessers = room.players.filter((p) => p.id !== g.giverId);
+      if (guessers.every((p) => g.locked[p.id])) wavelength.reveal(room);
+      return {};
+    }
+
+    /* If the clue-giver has vanished, nobody can give the clue and the room
+       would sit there forever. Once their grace period is up the host may
+       write the round off and move on; nobody scores it. */
+    if (msg.action === 'skip') {
+      if (room.hostId !== player.id) return { error: 'Only the host can skip a round.' };
+      if (g.phase === 'reveal' || g.phase === 'done') return { error: 'Nothing to skip.' };
+      const giverPlayer = room.players.find((p) => p.id === g.giverId);
+      const gone = !giverPlayer || (!giverPlayer.connected && Date.now() - giverPlayer.lastSeen > 90000);
+      if (!gone) return { error: 'They are still here.' };
+      if (g.round >= g.totalRounds) { g.phase = 'done'; return { over: true }; }
+      const next = g.round + 1;
+      Object.assign(g, wavelengthRound(g.order, next), { phase: 'clue', round: next });
+      return {};
+    }
+
+    if (msg.action === 'next') {
+      if (g.phase !== 'reveal') return { error: 'The round is not finished.' };
+      if (room.hostId !== player.id && g.giverId !== player.id) {
+        return { error: 'The host moves the game on.' };
+      }
+      if (g.round >= g.totalRounds) { g.phase = 'done'; return { over: true }; }
+      const next = g.round + 1;
+      Object.assign(g, wavelengthRound(g.order, next), { phase: 'clue', round: next });
+      return {};
+    }
+
+    return { error: 'Unknown move.' };
+  },
+
+  /* Work out the round: each guesser scores on distance, the clue-giver takes
+     the lot added together. */
+  reveal(room) {
+    const g = room.game;
+    const points = {};
+    let total = 0;
+    for (const p of room.players) {
+      if (p.id === g.giverId) continue;
+      const guess = g.guesses[p.id];
+      const pts = guess === undefined ? 0 : scoreForGuess(guess, g.target);
+      points[p.id] = pts;
+      total += pts;
+      g.scores[p.id] = (g.scores[p.id] ?? 0) + pts;
+    }
+    points[g.giverId] = total;
+    g.scores[g.giverId] = (g.scores[g.giverId] ?? 0) + total;
+    g.roundPoints = points;
+    g.phase = 'reveal';
+  },
+
+  // Somebody wandering off should not freeze the round for everyone else.
+  forfeit(room, quitter) {
+    const g = room.game;
+    if (g.phase === 'guess' && quitter.id !== g.giverId) {
+      const guessers = room.players.filter((p) => p.id !== g.giverId && p.id !== quitter.id);
+      if (guessers.length && guessers.every((p) => g.locked[p.id])) wavelength.reveal(room);
+    }
+    return {};
+  },
+
+  view(room, playerId) {
+    const g = room.game;
+    const revealed = g.phase === 'reveal' || g.phase === 'done';
+    const isGiver = playerId === g.giverId;
+
+    // Only the clue-giver may see the target before the reveal.
+    const target = revealed || isGiver ? g.target : null;
+
+    // Nobody sees another player's dial until everything is turned over,
+    // otherwise the last to lock in could simply copy.
+    const guesses = revealed
+      ? g.guesses
+      : (g.guesses[playerId] !== undefined ? { [playerId]: g.guesses[playerId] } : {});
+
+    return { ...room, game: { ...g, target, guesses } };
+  },
+};
+
+export const GAMES = { tictactoe, connect4, wordle, flagquiz, wavelength };
