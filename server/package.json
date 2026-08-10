@@ -1,0 +1,21 @@
+{
+  "name": "puzzlr-rooms",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "node test/rules.test.mjs",
+    "test:integration": "node test/room.test.mjs"
+  },
+  "devDependencies": {
+    "miniflare": "^5.20260801.1-alpha",
+    "wrangler": "^4.20.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260801.1": true,
+    "esbuild@0.28.1": true
+  }
+}
