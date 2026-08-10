@@ -178,6 +178,40 @@ console.log('\n— rooms are namespaced by code —');
   d.close();
 }
 
+console.log('\n— settings chosen in the lobby survive the start —');
+{
+  const h = await connect('CFG123');
+  h.send({ type: 'join', code: 'CFG123', gameId: 'flagquiz', playerId: 'p-h', name: 'Host' });
+  await h.nextState();
+  const g2 = await connect('CFG123');
+  g2.send({ type: 'join', code: 'CFG123', gameId: 'flagquiz', playerId: 'p-g', name: 'Guest' });
+  await g2.nextState(); await h.nextState();
+
+  h.send({ type: 'config', questionCount: 5, durationMs: 240000, mode: 'country2flag' });
+  const cfg = await h.nextState();
+  check('the lobby shows the chosen settings', cfg.room.game.questionCount === 5 && cfg.room.game.durationMs === 240000);
+
+  h.send({ type: 'start' });
+  const started = await h.nextState();
+  check('the quiz starts with the chosen question count', started.room.game.questionCount === 5, String(started.room.game.questionCount));
+  check('and the chosen mode', started.room.game.mode === 'country2flag', started.room.game.mode);
+  check('and the chosen clock', started.room.game.durationMs === 240000, String(started.room.game.durationMs));
+  h.close(); g2.close();
+}
+
+console.log('\n— the first game still opens with seat 0 —');
+{
+  const p1 = await connect('SEAT01');
+  p1.send({ type: 'join', code: 'SEAT01', gameId: 'tictactoe', playerId: 'p-1', name: 'One' });
+  await p1.nextState();
+  const p2 = await connect('SEAT01');
+  p2.send({ type: 'join', code: 'SEAT01', gameId: 'tictactoe', playerId: 'p-2', name: 'Two' });
+  const s = await p2.nextState();
+  check('seat 0 opens round one', s.room.game.turnSeat === 0, String(s.room.game.turnSeat));
+  check('and it is counted as round one', s.room.game.roundNo === 1, String(s.room.game.roundNo));
+  p1.close(); p2.close();
+}
+
 console.log('\n— a room survives its creator dropping out —');
 {
   const host = await connect('LOBBY1');

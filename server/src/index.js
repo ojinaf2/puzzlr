@@ -41,7 +41,8 @@ export class Room {
     // One alarm serves two jobs: ending a timed round, and forgetting an idle
     // room. Whichever comes first wins, and the handler works out which fired.
     const idleAt = Date.now() + MAX_IDLE_MS;
-    const roundAt = room.status === 'playing' ? room.game?.roundEndsAt : null;
+    const def = GAMES[room.gameId];
+    const roundAt = room.status === 'playing' ? def?.deadline?.(room) : null;
     await this.ctx.storage.setAlarm(roundAt ? Math.min(idleAt, roundAt) : idleAt);
   }
 
@@ -122,7 +123,7 @@ export class Room {
       // Two-player games have nothing to configure, so they begin by themselves.
       if (room.status === 'lobby' && def.autoStart && room.players.length === def.maxPlayers) {
         room.status = 'playing';
-        room.game = def.start(room);
+        room.game = def.start(room, room.game);   // carries anything set in the lobby
       }
 
       await this.save(room);
@@ -142,7 +143,7 @@ export class Room {
         return this.sendTo(ws, { type: 'error', message: `Needs at least ${def.minPlayers} players.` });
       }
       room.status = 'playing';
-      room.game = def.start(room);
+      room.game = def.start(room, room.game);     // whatever the host chose in the lobby
     }
 
     else if (msg.type === 'config') {
@@ -217,7 +218,8 @@ export class Room {
     const def = GAMES[room.gameId];
 
     // A round clock ran out.
-    if (room.status === 'playing' && room.game?.roundEndsAt && now >= room.game.roundEndsAt && def.timeUp) {
+    const deadline = def?.deadline?.(room);
+    if (room.status === 'playing' && deadline && now >= deadline && def.timeUp) {
       const result = def.timeUp(room);
       if (result?.over) room.status = 'over';
       await this.save(room);

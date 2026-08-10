@@ -17,6 +17,7 @@
 
 // Shared with the browser build rather than copied, so the two can never drift.
 import { validSet as VALID, answerList as ANSWERS } from '../../src/data/words.js';
+import { COUNTRIES } from '../../src/data/countries.js';
 
 const LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -51,12 +52,14 @@ const tictactoe = {
     winner: null,
     line: null,
     draw: false,
+    roundNo: 0,
     wins: {},
   }),
 
   start(room, prev) {
-    // Alternate who moves first, so X is not a permanent advantage.
-    const startSeat = prev ? (prev.startSeat + 1) % 2 : 0;
+    // Alternate who moves first, so X is not a permanent advantage. Round one
+    // always opens with seat 0 — only later rounds swap.
+    const startSeat = prev?.roundNo ? (prev.startSeat + 1) % 2 : 0;
     return {
       board: Array(9).fill(null),
       turnSeat: startSeat,
@@ -64,6 +67,7 @@ const tictactoe = {
       winner: null,
       line: null,
       draw: false,
+      roundNo: (prev?.roundNo ?? 0) + 1,
       wins: carryScores(room, prev),
     };
   },
@@ -145,11 +149,12 @@ const connect4 = {
     winner: null,
     line: null,
     draw: false,
+    roundNo: 0,
     wins: {},
   }),
 
   start(room, prev) {
-    const startSeat = prev ? (prev.startSeat + 1) % 2 : 0;
+    const startSeat = prev?.roundNo ? (prev.startSeat + 1) % 2 : 0;
     return {
       board: Array(C4_ROWS * C4_COLS).fill(null),
       turnSeat: startSeat,
@@ -158,6 +163,7 @@ const connect4 = {
       winner: null,
       line: null,
       draw: false,
+      roundNo: (prev?.roundNo ?? 0) + 1,
       wins: carryScores(room, prev),
     };
   },
@@ -304,6 +310,8 @@ const wordle = {
     return {};
   },
 
+  deadline: (room) => room.game?.roundEndsAt ?? null,
+
   // Called by the room's alarm when the clock runs out on a round.
   timeUp(room) {
     const g = room.game;
@@ -341,4 +349,159 @@ const wordle = {
   },
 };
 
-export const GAMES = { tictactoe, connect4, wordle };
+/* ------------------------------- flag quiz -------------------------------
+   Everybody answers the same questions in the same order, against one clock
+   for the whole quiz. Most correct wins — but only among players who actually
+   finished: running out of time is a loss however many you had right. */
+export const QUIZ_DURATIONS = [30000, 60000, 120000, 240000];
+export const QUIZ_MIN_QUESTIONS = 5, QUIZ_MAX_QUESTIONS = 15;
+
+const pickN = (list, n) => {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+};
+
+const buildQuestions = (mode, count) =>
+  pickN(COUNTRIES, count).map((answer) => {
+    const distractors = pickN(COUNTRIES.filter((c) => c[1] !== answer[1]), 3);
+    const options = pickN([answer, ...distractors], 4);
+    return {
+      // For flag -> country the prompt is the flag; for country -> flag it is
+      // the name. Either way the correct code is kept back for checking.
+      prompt: mode === 'flag2country' ? answer[1] : answer[0],
+      options,
+      answerCode: answer[1],
+      answerName: answer[0],
+    };
+  });
+
+const freshProgress = (room) =>
+  Object.fromEntries(room.players.map((p) => [p.id, { index: 0, correct: 0, answers: [], finishedAt: null }]));
+
+const flagquiz = {
+  maxPlayers: 8,
+  minPlayers: 2,
+  autoStart: false,
+
+  create: () => ({
+    mode: 'flag2country',
+    questionCount: 10,
+    durationMs: 60000,
+    questions: [],
+    endsAt: null,
+    progress: {},
+    roundNo: 0,
+    wins: {},
+  }),
+
+  start(room, prev) {
+    const mode = prev?.mode ?? 'flag2country';
+    const questionCount = prev?.questionCount ?? 10;
+    const durationMs = prev?.durationMs ?? 60000;
+    return {
+      mode, questionCount, durationMs,
+      questions: buildQuestions(mode, questionCount),
+      endsAt: Date.now() + durationMs,
+      progress: freshProgress(room),
+      roundNo: (prev?.roundNo ?? 0) + 1,
+      wins: carryScores(room, prev),
+    };
+  },
+
+  config(room, msg) {
+    if (room.status === 'playing') return { error: 'Finish this quiz first.' };
+    const g = room.game;
+    if (msg.mode !== undefined) {
+      if (!['flag2country', 'country2flag'].includes(msg.mode)) return { error: 'Unknown mode.' };
+      g.mode = msg.mode;
+    }
+    if (msg.questionCount !== undefined) {
+      const n = msg.questionCount;
+      if (!Number.isInteger(n) || n < QUIZ_MIN_QUESTIONS || n > QUIZ_MAX_QUESTIONS) {
+        return { error: `Between ${QUIZ_MIN_QUESTIONS} and ${QUIZ_MAX_QUESTIONS} questions.` };
+      }
+      g.questionCount = n;
+    }
+    if (msg.durationMs !== undefined) {
+      if (!QUIZ_DURATIONS.includes(msg.durationMs)) return { error: 'Not a time we offer.' };
+      g.durationMs = msg.durationMs;
+    }
+    return {};
+  },
+
+  move(room, player, msg) {
+    const g = room.game;
+    if (Date.now() > g.endsAt) return { error: "Time's up." };
+
+    const mine = g.progress[player.id];
+    if (!mine) return { error: 'You are not in this quiz.' };
+    if (mine.finishedAt) return { error: 'You have already finished.' };
+    if (msg.index !== mine.index) return { error: 'That is not the question you are on.' };
+
+    const q = g.questions[mine.index];
+    if (!q) return { error: 'No such question.' };
+
+    const chosen = String(msg.code ?? '');
+    if (!q.options.some((o) => o[1] === chosen)) return { error: 'That is not one of the options.' };
+
+    const right = chosen === q.answerCode;
+    mine.answers.push({ chosen, correct: right, answerCode: q.answerCode });
+    if (right) mine.correct += 1;
+    mine.index += 1;
+
+    if (mine.index >= g.questionCount) mine.finishedAt = Date.now();
+
+    // Everyone done early ends the quiz without waiting for the clock.
+    if (Object.values(g.progress).every((p) => p.finishedAt)) {
+      flagquiz.settle(room);
+      return { over: true };
+    }
+    return {};
+  },
+
+  deadline: (room) => room.game?.endsAt ?? null,
+
+  timeUp(room) {
+    if (room.status !== 'playing') return {};
+    flagquiz.settle(room);
+    return { over: true };
+  },
+
+  /* Decide the winner. Not finishing is a loss, whatever the score. */
+  settle(room) {
+    const g = room.game;
+    g.endsAt = null;
+    const finishers = room.players.filter((p) => g.progress[p.id]?.finishedAt);
+    if (finishers.length === 0) { g.winners = []; return; }
+    const best = Math.max(...finishers.map((p) => g.progress[p.id].correct));
+    g.winners = finishers.filter((p) => g.progress[p.id].correct === best).map((p) => p.id);
+    for (const id of g.winners) g.wins[id] = (g.wins[id] ?? 0) + 1;
+  },
+
+  forfeit() { return {}; },   // a quiz carries on regardless of who wanders off
+
+  view(room, playerId) {
+    const g = room.game;
+    const over = room.status === 'over';
+    const mine = g.progress?.[playerId];
+
+    // Only the question in front of you, and never the stored answer.
+    const questions = over
+      ? g.questions.map(({ prompt, options, answerCode, answerName }) => ({ prompt, options, answerCode, answerName }))
+      : (g.questions ?? []).map((q, i) => (mine && i === mine.index ? { prompt: q.prompt, options: q.options } : null));
+
+    // Everyone can see how far along the others are — it is a race, after all.
+    const progress = Object.fromEntries(Object.entries(g.progress ?? {}).map(([pid, p]) => [
+      pid,
+      pid === playerId ? p : { index: p.index, correct: p.correct, finishedAt: p.finishedAt },
+    ]));
+
+    return { ...room, game: { ...g, questions, progress } };
+  },
+};
+
+export const GAMES = { tictactoe, connect4, wordle, flagquiz };

@@ -3,6 +3,9 @@ import { C } from '../shared/theme.js';
 import { rand, shuffle } from '../shared/utils.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { COUNTRIES } from '../data/countries.js';
+import { makeRoomCode } from '../shared/router.js';
+import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
+import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= FLAG QUIZ ============================= */
 // Flags are bundled with the app in /public/flags/ so they load from your own
@@ -79,7 +82,12 @@ const suggestFor = (raw) => {
   return [...leading, ...midName].slice(0, MAX_SUGGESTIONS);
 };
 
-export default function FlagQuiz() {
+export default function FlagQuiz({ roomCode, navigate }) {
+  if (roomCode) return <OnlineFlagQuiz roomCode={roomCode} navigate={navigate} />;
+  return <LocalFlagQuiz navigate={navigate} />;
+}
+
+function LocalFlagQuiz({ navigate }) {
   const [mode, setMode] = useState(null); // "flag2country" | "country2flag"
   const [difficulty, setDifficulty] = useState("easy"); // "easy" | "hard"
   const [q, setQ] = useState(null);
@@ -164,6 +172,11 @@ export default function FlagQuiz() {
         <Btn onClick={() => start("flag2country")}>Flag → Country</Btn>
         <Btn onClick={() => start("country2flag")} variant="ghost">Country → Flag</Btn>
       </div>
+      {roomServerUrl() && (
+        <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => navigate('flags', makeRoomCode())}>
+          Race friends online
+        </Btn>
+      )}
     </Centered>
   );
 
@@ -245,6 +258,220 @@ export default function FlagQuiz() {
         <Btn onClick={next}>Next</Btn>
         <Btn onClick={() => setMode(null)} variant="subtle">Change mode</Btn>
       </div>}
+    </Centered>
+  );
+}
+
+/* ============================= ONLINE QUIZ =============================
+   Everyone answers the same questions against one clock. Most correct wins,
+   but only among players who finished: running out of time is a loss however
+   many you had right. */
+
+const QUIZ_DURATION_LABELS = [
+  [30000, '30 sec'], [60000, '1 min'], [120000, '2 min'], [240000, '4 min'],
+];
+const MIN_Q = 5, MAX_Q = 15;
+const capStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+
+function QuizClock({ endsAt }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!endsAt) return;
+    const t = setInterval(() => tick((n) => n + 1), 250);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  if (!endsAt) return null;
+  const secs = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+  return (
+    <span style={{ fontWeight: 800, color: secs <= 10 ? C.danger : C.text, fontVariantNumeric: "tabular-nums" }}>
+      {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
+    </span>
+  );
+}
+
+function OnlineFlagQuiz({ roomCode, navigate }) {
+  const [name, setName] = useState(() => savedName());
+  const { status, room, me, playerId, error, send } = useRoom({ gameId: 'flagquiz', roomCode, name });
+
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'flags', navigate, name, onName: setName, skipLobby: true });
+  if (lobby) return lobby;
+
+  const g = room.game;
+  const isHost = room.hostId === playerId;
+  const mine = g.progress?.[playerId];
+
+  /* ------------------------------- lobby ------------------------------- */
+  if (room.status === 'lobby') {
+    const setCount = (n) => send({ type: 'config', questionCount: Math.min(MAX_Q, Math.max(MIN_Q, n)) });
+    return (
+      <Centered>
+        <h2 style={hStyle}>Flag Quiz race</h2>
+        <p style={pStyle}>Same questions, one clock. Most right wins — but you have to finish.</p>
+        <InviteLink gameId="flags" roomCode={roomCode} />
+
+        <div style={{ width: "100%", maxWidth: 420, marginTop: 26, textAlign: "left" }}>
+          <div style={{ ...capStyle, marginBottom: 8 }}>Mode</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {[['flag2country', 'Flag → Country'], ['country2flag', 'Country → Flag']].map(([m, label]) => (
+              <Btn key={m} variant={g.mode === m ? "primary" : "ghost"}
+                onClick={() => isHost && send({ type: 'config', mode: m })}
+                style={{ padding: "8px 16px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{label}</Btn>
+            ))}
+          </div>
+
+          <div style={{ ...capStyle, marginBottom: 8 }}>Questions</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 20 }}>
+            <Btn variant="ghost" style={{ padding: "8px 16px", fontSize: 16 }}
+              onClick={() => isHost && setCount(g.questionCount - 1)}>&minus;</Btn>
+            <span style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 30, fontWeight: 700, minWidth: 46, textAlign: "center" }}>
+              {g.questionCount}
+            </span>
+            <Btn variant="ghost" style={{ padding: "8px 16px", fontSize: 16 }}
+              onClick={() => isHost && setCount(g.questionCount + 1)}>+</Btn>
+            <span style={{ fontSize: 13, color: C.dim }}>{MIN_Q}–{MAX_Q}</span>
+          </div>
+
+          <div style={{ ...capStyle, marginBottom: 8 }}>Time for the whole quiz</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {QUIZ_DURATION_LABELS.map(([ms, label]) => (
+              <Btn key={ms} variant={g.durationMs === ms ? "primary" : "ghost"}
+                onClick={() => isHost && send({ type: 'config', durationMs: ms })}
+                style={{ padding: "8px 16px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{label}</Btn>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ fontSize: 14, color: C.dim, marginBottom: 14 }}>
+          {room.players.length === 1 ? 'Nobody else here yet.' : `Here: ${room.players.map((p) => p.name).join(', ')}`}
+        </div>
+        {isHost
+          ? <Btn disabled={room.players.length < 2} style={{ opacity: room.players.length < 2 ? .5 : 1 }}
+              onClick={() => send({ type: 'start' })}>Start quiz</Btn>
+          : <div style={{ fontSize: 14, color: C.dim }}>Waiting for the host to start…</div>}
+        <Btn variant="subtle" style={{ marginTop: 16 }} onClick={() => navigate('flags')}>Leave room</Btn>
+      </Centered>
+    );
+  }
+
+  /* ------------------------------ results ------------------------------ */
+  if (room.status === 'over') {
+    const table = room.players.map((p) => ({
+      p, prog: g.progress[p.id] ?? { correct: 0, index: 0, finishedAt: null },
+    })).sort((a, b) => {
+      if (!!b.prog.finishedAt !== !!a.prog.finishedAt) return b.prog.finishedAt ? 1 : -1;
+      return b.prog.correct - a.prog.correct;
+    });
+    const iWon = (g.winners ?? []).includes(playerId);
+    const iRanOut = !mine?.finishedAt;
+
+    return (
+      <Centered>
+        <div style={{ ...capStyle, marginBottom: 8 }}>Round {g.roundNo}</div>
+        <h2 style={{ ...hStyle, color: iWon ? C.correct : iRanOut ? C.danger : C.text }}>
+          {iWon ? 'You win!' : iRanOut ? "Time's up" : (g.winners?.length ? `${room.players.find((p) => p.id === g.winners[0])?.name ?? 'They'} wins` : 'Nobody finished')}
+        </h2>
+        <p style={pStyle}>
+          {iRanOut
+            ? 'You ran out of time before finishing, so this one goes down as a loss.'
+            : 'Most right out of everyone who finished.'}
+        </p>
+
+        <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+          {table.map(({ p, prog }) => {
+            const won = (g.winners ?? []).includes(p.id);
+            return (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "12px 16px", borderRadius: 12, fontSize: 15,
+                background: won ? C.panel2 : C.panel, border: `2px solid ${won ? C.correct : 'transparent'}` }}>
+                <span style={{ fontWeight: 700 }}>{p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {!prog.finishedAt && <span style={{ fontSize: 12, color: C.danger, fontWeight: 700 }}>Time's up</span>}
+                  <b style={{ color: C.accent2 }}>{prog.correct}/{g.questionCount}</b>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {isHost && <Btn onClick={() => send({ type: 'rematch' })}>Play again</Btn>}
+          <Btn variant="subtle" onClick={() => navigate('flags')}>Leave room</Btn>
+        </div>
+      </Centered>
+    );
+  }
+
+  /* ------------------------------ playing ------------------------------ */
+  const question = g.questions?.[mine?.index ?? 0] ?? null;
+  const lastAnswer = mine?.answers?.[mine.answers.length - 1] ?? null;
+  const done = !!mine?.finishedAt;
+
+  return (
+    <Centered>
+      <RoomStatus status={status} error={error} />
+
+      <div style={{ display: "flex", gap: 16, fontSize: 13, color: C.dim, marginBottom: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+        <span>Question {Math.min((mine?.index ?? 0) + 1, g.questionCount)} of {g.questionCount}</span>
+        <span style={{ color: C.accent2, fontWeight: 700 }}>{mine?.correct ?? 0} right</span>
+        <QuizClock endsAt={g.endsAt} />
+      </div>
+
+      {/* How everyone else is getting on. */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 16 }}>
+        {room.players.filter((p) => p.id !== playerId).map((p) => {
+          const prog = g.progress[p.id] ?? { index: 0, correct: 0 };
+          return (
+            <span key={p.id} style={{ fontSize: 12, background: C.panel, borderRadius: 20, padding: "4px 12px", color: C.dim }}>
+              {p.name} {prog.finishedAt ? '✓ done' : `${prog.index}/${g.questionCount}`}
+            </span>
+          );
+        })}
+      </div>
+
+      {done ? (
+        <>
+          <h2 style={hStyle}>Finished</h2>
+          <p style={pStyle}>{mine.correct} out of {g.questionCount} right. Waiting for everyone else…</p>
+        </>
+      ) : question ? (
+        <>
+          <div style={{ height: 20, marginBottom: 8, fontSize: 13, fontWeight: 700 }}>
+            {lastAnswer && (lastAnswer.correct
+              ? <span style={{ color: C.correct }}>Correct</span>
+              : <span style={{ color: C.danger }}>Wrong</span>)}
+          </div>
+
+          {g.mode === 'flag2country' ? (
+            <>
+              <Flag code={question.prompt} style={{ ...flagFit, width: 250, borderRadius: 12, border: `1px solid ${C.line}`, marginBottom: 22, boxShadow: "0 10px 26px rgba(74,53,36,.22)" }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%", maxWidth: 460 }}>
+                {question.options.map((opt) => (
+                  <TileBtn key={opt[1]} onClick={() => send({ type: 'move', index: mine.index, code: opt[1] })}
+                    style={{ padding: "16px 12px", fontSize: 16, fontWeight: 700 }}>{opt[0]}</TileBtn>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 28, fontWeight: 700, marginBottom: 22 }}>
+                {question.prompt}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, width: "100%", maxWidth: 460 }}>
+                {question.options.map((opt) => (
+                  <TileBtn key={opt[1]} onClick={() => send({ type: 'move', index: mine.index, code: opt[1] })}
+                    noPad style={{ background: C.panel, border: "3px solid transparent", padding: 8 }}>
+                    <Flag code={opt[1]} style={{ ...flagFit, borderRadius: 6 }} />
+                  </TileBtn>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <p style={pStyle}>Waiting for the next question…</p>
+      )}
+
+      <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => navigate('flags')}>Leave room</Btn>
     </Centered>
   );
 }
