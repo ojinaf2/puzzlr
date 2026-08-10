@@ -34,6 +34,8 @@ function LocalWordle({ navigate }) {
   const [shake, setShake] = useState(false);
   const [revealRow, setRevealRow] = useState(-1);
   const tt = useRef(null);
+  const bridgeRef = useRef(null);
+  const openPhoneKeyboard = () => bridgeRef.current?.focus();
 
   const showToast = useCallback((m) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(""), 1500); }, []);
   const reset = useCallback(() => { setAnswer(answerList[rand(answerList.length)]); setGuesses([]); setScores([]); setCurrent(""); setStatus("playing"); setRevealRow(-1); }, []);
@@ -57,8 +59,14 @@ function LocalWordle({ navigate }) {
   }, [current, status, submit]);
 
   useEffect(() => {
-    const h = (e) => { if (e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase();
-      if (k === "enter") { e.preventDefault(); onKey("enter"); } else if (k === "backspace") onKey("back"); else if (/^[a-z]$/.test(k)) onKey(k); };
+    const h = (e) => {
+      // Ignore keys typed into a field — otherwise the phone keyboard bridge
+      // and this listener would both add the same letter.
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "enter") { e.preventDefault(); onKey("enter"); } else if (k === "backspace") onKey("back"); else if (/^[a-z]$/.test(k)) onKey(k);
+    };
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, [onKey]);
 
@@ -67,9 +75,11 @@ function LocalWordle({ navigate }) {
     if (s === "correct" || (s === "present" && p !== "correct") || (s === "absent" && !p)) keyState[c] = s; }));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+      <TypingBridge inputRef={bridgeRef} value={current} onValue={setCurrent} onEnter={submit} />
       <div style={{ height: 22, marginBottom: 6, fontSize: 13 }}>{toast && <span style={{ background: C.panel2, padding: "4px 12px", borderRadius: 6 }}>{toast}</span>}</div>
-      <div style={{ display: "grid", gridTemplateRows: `repeat(${W_ROWS}, 1fr)`, gap: 6, marginBottom: 14 }}>
+      {/* Tapping the grid opens the phone's own keyboard. */}
+      <div onClick={openPhoneKeyboard} style={{ display: "grid", gridTemplateRows: `repeat(${W_ROWS}, 1fr)`, gap: 6, marginBottom: 14, cursor: "text" }}>
         {Array.from({ length: W_ROWS }).map((_, r) => {
           const g = guesses[r] ?? (r === guesses.length ? current : ""); const sc = scores[r];
           const isShake = shake && r === guesses.length; const isWin = status === "won" && r === guesses.length - 1;
@@ -92,24 +102,56 @@ function LocalWordle({ navigate }) {
           <Btn variant="subtle" onClick={() => navigate('wordle', makeRoomCode())}>Race a friend online</Btn>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", maxWidth: 484 }}>
-        {KEYS.map((row, ri) => (
-          <div key={ri} style={{ display: "flex", justifyContent: "center", gap: 5 }}>
-            {ri === 2 && <KbKey wide onClick={() => onKey("enter")}>Enter</KbKey>}
-            {row.split("").map((k) => { const st = keyState[k];
-              const bg = st === "correct" ? C.correct : st === "present" ? C.present : st === "absent" ? C.absent : "#e0be93";
-              const kc = st ? "#fff" : C.text;
-              return <KbKey key={k} onClick={() => onKey(k)} bg={bg} kc={kc}>{k}</KbKey>; })}
-            {ri === 2 && <KbKey wide onClick={() => onKey("back")}>Del</KbKey>}
-          </div>
-        ))}
-      </div>
+      <Keyboard onKey={onKey} keyState={keyState} />
+      <button onClick={openPhoneKeyboard}
+        style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: 13, fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
+        Use my phone's keyboard instead
+      </button>
     </div>
   );
 }
 function KbKey({ children, onClick, wide, bg = "#e0be93", kc = C.text }) {
-  return <button onClick={onClick} style={{ minWidth: wide ? 54 : 32, height: 52, background: bg, color: kc, border: "none", borderRadius: 9, fontSize: wide ? 12 : 15, fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 46, boxShadow: "0 2px 5px rgba(74,53,36,.18)", transition: "transform .08s" }}
+  return <button onClick={onClick} style={{ minWidth: wide ? 54 : 30, height: 58, background: bg, color: kc, border: "none", borderRadius: 9, fontSize: wide ? 12 : 16, fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 48, boxShadow: "0 2px 5px rgba(74,53,36,.18)", transition: "transform .08s", touchAction: "manipulation", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
     onMouseDown={(e)=>e.currentTarget.style.transform="translateY(1px)"} onMouseUp={(e)=>e.currentTarget.style.transform="none"} onMouseLeave={(e)=>e.currentTarget.style.transform="none"}>{children}</button>;
+}
+
+/* The on-screen keyboard. It reclaims the page's side padding so the keys get
+   as much width as the screen allows — on a phone that is the difference
+   between comfortable keys and constant mis-taps. */
+function Keyboard({ onKey, keyState }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "calc(100% + 28px)",
+      marginLeft: -14, marginRight: -14, maxWidth: 520, alignSelf: "center" }}>
+      {KEYS.map((row, ri) => (
+        <div key={ri} style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+          {ri === 2 && <KbKey wide onClick={() => onKey("enter")}>Enter</KbKey>}
+          {row.split("").map((k) => {
+            const st = keyState[k];
+            const bg = st === "correct" ? C.correct : st === "present" ? C.present : st === "absent" ? C.absent : "#e0be93";
+            return <KbKey key={k} onClick={() => onKey(k)} bg={bg} kc={st ? "#fff" : C.text}>{k}</KbKey>;
+          })}
+          {ri === 2 && <KbKey wide onClick={() => onKey("back")}>Del</KbKey>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* Lets the phone's own keyboard drive the game. The input is invisible but
+   real and focusable, which is what makes iOS open the keyboard at all — a
+   display:none field would be ignored. */
+function TypingBridge({ inputRef, value, onValue, onEnter }) {
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => onValue(e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, W_COLS).toLowerCase())}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } }}
+      inputMode="text" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck="false"
+      aria-label="Type your guess"
+      style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 1, width: 1, padding: 0, border: 0 }}
+    />
+  );
 }
 
 /* ============================= ONLINE RACE =============================
@@ -171,6 +213,8 @@ function OnlineWordle({ roomCode, navigate }) {
   const [current, setCurrent] = useState("");
   const [toast, setToast] = useState("");
   const [shake, setShake] = useState(false);
+  const bridgeRef = useRef(null);
+  const openPhoneKeyboard = () => bridgeRef.current?.focus();
 
   // The server is the judge of a guess, so its complaints become the toast.
   useEffect(() => {
@@ -198,6 +242,7 @@ function OnlineWordle({ roomCode, navigate }) {
 
   useEffect(() => {
     const h = (e) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'enter') { e.preventDefault(); onKey('enter'); }
@@ -292,8 +337,10 @@ function OnlineWordle({ roomCode, navigate }) {
         {toast && <span style={{ background: C.panel2, padding: "4px 12px", borderRadius: 6 }}>{toast}</span>}
       </div>
 
+      <TypingBridge inputRef={bridgeRef} value={current} onValue={setCurrent} onEnter={() => onKey('enter')} />
+
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-        <div className={shake ? "row-shake" : ""}>
+        <div className={shake ? "row-shake" : ""} onClick={openPhoneKeyboard} style={{ cursor: "text" }}>
           <div style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: C.dim, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>You</div>
           <Grid rows={myRows} size={56} />
         </div>
@@ -321,19 +368,13 @@ function OnlineWordle({ roomCode, navigate }) {
           {myBoard.solved ? 'Solved — waiting for the round to finish…' : 'Out of guesses — waiting…'}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", maxWidth: 484 }}>
-          {KEYS.map((row, ri) => (
-            <div key={ri} style={{ display: "flex", justifyContent: "center", gap: 5 }}>
-              {ri === 2 && <KbKey wide onClick={() => onKey("enter")}>Enter</KbKey>}
-              {row.split("").map((k) => {
-                const st = keyState[k];
-                const bg = st === "correct" ? C.correct : st === "present" ? C.present : st === "absent" ? C.absent : "#e0be93";
-                return <KbKey key={k} onClick={() => onKey(k)} bg={bg} kc={st ? "#fff" : C.text}>{k}</KbKey>;
-              })}
-              {ri === 2 && <KbKey wide onClick={() => onKey("back")}>Del</KbKey>}
-            </div>
-          ))}
-        </div>
+        <>
+          <Keyboard onKey={onKey} keyState={keyState} />
+          <button onClick={openPhoneKeyboard}
+            style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: 13, fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
+            Use my phone's keyboard instead
+          </button>
+        </>
       )}
     </Centered>
   );

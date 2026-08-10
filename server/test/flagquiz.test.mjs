@@ -1,6 +1,6 @@
 /* Flag quiz rules. Run with: node test/flagquiz.test.mjs */
 
-import { GAMES, QUIZ_DURATIONS, QUIZ_MIN_QUESTIONS, QUIZ_MAX_QUESTIONS } from '../src/games.js';
+import { GAMES, QUIZ_DURATIONS, QUIZ_QUESTION_OPTIONS } from '../src/games.js';
 
 let passed = 0, failed = 0;
 const check = (label, ok, detail = '') => {
@@ -28,10 +28,15 @@ const wrongCodeFor = (room, who) => {
   const cur = room.game.questions[room.game.progress[who].index];
   return cur.options.find((o) => o[1] !== cur.answerCode)[1];
 };
+/* Answer through to the end from wherever the player currently is, getting
+   `howManyRight` of the remaining questions right. */
 const finish = (room, who, howManyRight) => {
-  const total = room.game.questionCount;
-  for (let i = 0; i < total; i++) {
-    answer(room, who, i < howManyRight ? correctCodeFor(room, who) : wrongCodeFor(room, who));
+  let right = 0;
+  let guard = 60;
+  while (!room.game.progress[who].finishedAt && guard-- > 0) {
+    const aimTrue = right < howManyRight;
+    answer(room, who, aimTrue ? correctCodeFor(room, who) : wrongCodeFor(room, who));
+    if (aimTrue) right++;
   }
 };
 
@@ -122,13 +127,16 @@ console.log('\n— settings —');
   r.status = 'over';
   check('a mode can be chosen', !q.config(r, { mode: 'country2flag' }).error && r.game.mode === 'country2flag');
   check('an unknown mode is refused', !!q.config(r, { mode: 'nonsense' }).error);
-  check('a question count in range is accepted', !q.config(r, { questionCount: 15 }).error && r.game.questionCount === 15);
-  check('too few questions is refused', !!q.config(r, { questionCount: QUIZ_MIN_QUESTIONS - 1 }).error);
-  check('too many questions is refused', !!q.config(r, { questionCount: QUIZ_MAX_QUESTIONS + 1 }).error);
+  check('an offered length is accepted', !q.config(r, { questionCount: 15 }).error && r.game.questionCount === 15);
+  check('a long quiz of 25 is offered', !q.config(r, { questionCount: 25 }).error && r.game.questionCount === 25);
+  check('and one of 50', !q.config(r, { questionCount: 50 }).error && r.game.questionCount === 50);
+  check('a length we do not offer is refused', !!q.config(r, { questionCount: 7 }).error);
   check('a fractional count is refused', !!q.config(r, { questionCount: 7.5 }).error);
+  check('the offered lengths are 5, 10, 15, 25 and 50', JSON.stringify(QUIZ_QUESTION_OPTIONS) === '[5,10,15,25,50]');
   check('an offered duration is accepted', !q.config(r, { durationMs: 240000 }).error);
+  check('untimed is offered', !q.config(r, { durationMs: 0 }).error && r.game.durationMs === 0);
   check('an invented duration is refused', !!q.config(r, { durationMs: 99 }).error);
-  check('the offered durations are 30s, 60s, 2min and 4min', JSON.stringify(QUIZ_DURATIONS) === '[30000,60000,120000,240000]');
+  check('the offered durations include untimed', JSON.stringify(QUIZ_DURATIONS) === '[30000,60000,120000,240000,0]');
   r.status = 'playing';
   check('settings are locked once running', !!q.config(r, { questionCount: 5 }).error);
 }
@@ -140,6 +148,39 @@ console.log('\n— settings —');
   check('settings carry into the next quiz', next.mode === 'country2flag' && next.questionCount === 5 && next.durationMs === 30000);
   check('and it builds that many questions', next.questions.length === 5);
   check('the round number advances', next.roundNo === 2);
+}
+
+console.log('\n— playing untimed —');
+{
+  const r = makeRoom();
+  r.status = 'over';
+  q.config(r, { durationMs: 0, questionCount: 5 });
+  r.game = q.start(r, r.game);
+  r.status = 'playing';
+
+  check('no clock is set', r.game.endsAt === null, String(r.game.endsAt));
+  // A bare `Date.now() > endsAt` would read null as zero and refuse everything.
+  check('answers are still accepted', !answer(r, 'ana', correctCodeFor(r, 'ana')).error);
+  check('and they still score', r.game.progress.ana.correct === 1);
+
+  finish(r, 'ana', 4);
+  finish(r, 'ben', 2);
+  check('it still ends when everyone finishes', Array.isArray(r.game.winners), JSON.stringify(r.game.winners));
+  check('and the better score wins', r.game.winners[0] === 'ana', JSON.stringify(r.game.winners));
+}
+{
+  const r = makeRoom();
+  r.status = 'over';
+  q.config(r, { durationMs: 0, questionCount: 5 });
+  r.game = q.start(r, r.game);
+  r.status = 'playing';
+  finish(r, 'ana', 3);                       // Ben wanders off without finishing
+
+  check('a guest cannot call time', !!q.move(r, r.players[1], { action: 'endNow' }).error);
+  const res = q.move(r, r.players[0], { action: 'endNow' });
+  check('the host can end an untimed quiz', res.over === true);
+  check('and it settles on whoever finished', r.game.winners.length === 1 && r.game.winners[0] === 'ana',
+    JSON.stringify(r.game.winners));
 }
 
 console.log('\n— what players can see —');

@@ -268,9 +268,9 @@ function LocalFlagQuiz({ navigate }) {
    many you had right. */
 
 const QUIZ_DURATION_LABELS = [
-  [30000, '30 sec'], [60000, '1 min'], [120000, '2 min'], [240000, '4 min'],
+  [30000, '30 sec'], [60000, '1 min'], [120000, '2 min'], [240000, '4 min'], [0, 'Untimed'],
 ];
-const MIN_Q = 5, MAX_Q = 15;
+const QUESTION_CHOICES = [5, 10, 15, 25, 50];
 const capStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
 
 function QuizClock({ endsAt }) {
@@ -280,7 +280,7 @@ function QuizClock({ endsAt }) {
     const t = setInterval(() => tick((n) => n + 1), 250);
     return () => clearInterval(t);
   }, [endsAt]);
-  if (!endsAt) return null;
+  if (!endsAt) return <span style={{ color: C.dim }}>Untimed</span>;
   const secs = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
   return (
     <span style={{ fontWeight: 800, color: secs <= 10 ? C.danger : C.text, fontVariantNumeric: "tabular-nums" }}>
@@ -302,7 +302,6 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
 
   /* ------------------------------- lobby ------------------------------- */
   if (room.status === 'lobby') {
-    const setCount = (n) => send({ type: 'config', questionCount: Math.min(MAX_Q, Math.max(MIN_Q, n)) });
     return (
       <Centered>
         <h2 style={hStyle}>Flag Quiz race</h2>
@@ -320,15 +319,12 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
           </div>
 
           <div style={{ ...capStyle, marginBottom: 8 }}>Questions</div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 20 }}>
-            <Btn variant="ghost" style={{ padding: "8px 16px", fontSize: 16 }}
-              onClick={() => isHost && setCount(g.questionCount - 1)}>&minus;</Btn>
-            <span style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 30, fontWeight: 700, minWidth: 46, textAlign: "center" }}>
-              {g.questionCount}
-            </span>
-            <Btn variant="ghost" style={{ padding: "8px 16px", fontSize: 16 }}
-              onClick={() => isHost && setCount(g.questionCount + 1)}>+</Btn>
-            <span style={{ fontSize: 13, color: C.dim }}>{MIN_Q}–{MAX_Q}</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {QUESTION_CHOICES.map((n) => (
+              <Btn key={n} variant={g.questionCount === n ? "primary" : "ghost"}
+                onClick={() => isHost && send({ type: 'config', questionCount: n })}
+                style={{ padding: "8px 18px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{n}</Btn>
+            ))}
           </div>
 
           <div style={{ ...capStyle, marginBottom: 8 }}>Time for the whole quiz</div>
@@ -363,16 +359,20 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
     });
     const iWon = (g.winners ?? []).includes(playerId);
     const iRanOut = !mine?.finishedAt;
+    const stoppedEarly = !!g.endedEarly;      // host called it, rather than a clock running out
+    const unfinishedLabel = stoppedEarly ? 'Unfinished' : "Time's up";
 
     return (
       <Centered>
         <div style={{ ...capStyle, marginBottom: 8 }}>Round {g.roundNo}</div>
         <h2 style={{ ...hStyle, color: iWon ? C.correct : iRanOut ? C.danger : C.text }}>
-          {iWon ? 'You win!' : iRanOut ? "Time's up" : (g.winners?.length ? `${room.players.find((p) => p.id === g.winners[0])?.name ?? 'They'} wins` : 'Nobody finished')}
+          {iWon ? 'You win!' : iRanOut ? (stoppedEarly ? 'Quiz ended' : "Time's up") : (g.winners?.length ? `${room.players.find((p) => p.id === g.winners[0])?.name ?? 'They'} wins` : 'Nobody finished')}
         </h2>
         <p style={pStyle}>
           {iRanOut
-            ? 'You ran out of time before finishing, so this one goes down as a loss.'
+            ? (stoppedEarly
+              ? 'The quiz was stopped before you finished, so this one does not count as a win.'
+              : 'You ran out of time before finishing, so this one goes down as a loss.')
             : 'Most right out of everyone who finished.'}
         </p>
 
@@ -385,7 +385,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
                 background: won ? C.panel2 : C.panel, border: `2px solid ${won ? C.correct : 'transparent'}` }}>
                 <span style={{ fontWeight: 700 }}>{p.name}{p.id === playerId ? ' (you)' : ''}</span>
                 <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  {!prog.finishedAt && <span style={{ fontSize: 12, color: C.danger, fontWeight: 700 }}>Time's up</span>}
+                  {!prog.finishedAt && <span style={{ fontSize: 12, color: C.danger, fontWeight: 700 }}>{unfinishedLabel}</span>}
                   <b style={{ color: C.accent2 }}>{prog.correct}/{g.questionCount}</b>
                 </span>
               </div>
@@ -428,10 +428,18 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
         })}
       </div>
 
+      {/* Untimed, so nothing will end the quiz if somebody stops answering. */}
+      {isHost && !g.endsAt && (
+        <Btn variant="ghost" style={{ marginBottom: 14, padding: "7px 16px", fontSize: 13 }}
+          onClick={() => send({ type: 'move', action: 'endNow' })}>End quiz now</Btn>
+      )}
+
       {done ? (
         <>
           <h2 style={hStyle}>Finished</h2>
-          <p style={pStyle}>{mine.correct} out of {g.questionCount} right. Waiting for everyone else…</p>
+          <p style={pStyle}>
+            {mine.correct} out of {g.questionCount} right. Waiting for everyone else…
+          </p>
         </>
       ) : question ? (
         <>

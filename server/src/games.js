@@ -354,8 +354,9 @@ const wordle = {
    Everybody answers the same questions in the same order, against one clock
    for the whole quiz. Most correct wins — but only among players who actually
    finished: running out of time is a loss however many you had right. */
-export const QUIZ_DURATIONS = [30000, 60000, 120000, 240000];
-export const QUIZ_MIN_QUESTIONS = 5, QUIZ_MAX_QUESTIONS = 15;
+// 0 means play untimed: the quiz ends when everyone has finished.
+export const QUIZ_DURATIONS = [30000, 60000, 120000, 240000, 0];
+export const QUIZ_QUESTION_OPTIONS = [5, 10, 15, 25, 50];
 
 const pickN = (list, n) => {
   const copy = [...list];
@@ -406,7 +407,7 @@ const flagquiz = {
     return {
       mode, questionCount, durationMs,
       questions: buildQuestions(mode, questionCount),
-      endsAt: Date.now() + durationMs,
+      endsAt: durationMs ? Date.now() + durationMs : null,
       progress: freshProgress(room),
       roundNo: (prev?.roundNo ?? 0) + 1,
       wins: carryScores(room, prev),
@@ -421,11 +422,8 @@ const flagquiz = {
       g.mode = msg.mode;
     }
     if (msg.questionCount !== undefined) {
-      const n = msg.questionCount;
-      if (!Number.isInteger(n) || n < QUIZ_MIN_QUESTIONS || n > QUIZ_MAX_QUESTIONS) {
-        return { error: `Between ${QUIZ_MIN_QUESTIONS} and ${QUIZ_MAX_QUESTIONS} questions.` };
-      }
-      g.questionCount = n;
+      if (!QUIZ_QUESTION_OPTIONS.includes(msg.questionCount)) return { error: 'Not a length we offer.' };
+      g.questionCount = msg.questionCount;
     }
     if (msg.durationMs !== undefined) {
       if (!QUIZ_DURATIONS.includes(msg.durationMs)) return { error: 'Not a time we offer.' };
@@ -436,7 +434,18 @@ const flagquiz = {
 
   move(room, player, msg) {
     const g = room.game;
-    if (Date.now() > g.endsAt) return { error: "Time's up." };
+
+    /* Untimed quizzes would otherwise hang forever on somebody who wandered
+       off, so the host can call time and settle with whoever has finished. */
+    if (msg.action === 'endNow') {
+      if (room.hostId !== player.id) return { error: 'Only the host can end the quiz.' };
+      g.endedEarly = true;               // so the result can say so, rather than blaming a clock
+      flagquiz.settle(room);
+      return { over: true };
+    }
+
+    // endsAt is null when untimed; a bare comparison would treat that as zero.
+    if (g.endsAt && Date.now() > g.endsAt) return { error: "Time's up." };
 
     const mine = g.progress[player.id];
     if (!mine) return { error: 'You are not in this quiz.' };
