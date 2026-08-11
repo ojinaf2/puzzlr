@@ -197,6 +197,10 @@ export default function App() {
         /* Tiles and cards set their own hover transform inline, so only the
            pressed state is claimed here. */
         .tile3d:active, .btn3d-lift:active { transform: translateY(1px) scale(.99) !important; }
+        /* On a narrow phone the wordmark and the button label are the first
+           things to go, so the game name, the back arrow and the theme toggle
+           all still fit on one line. */
+        @media (max-width: 460px) { .hdr-word { display: none } }
         .btn-flat { -webkit-tap-highlight-color: transparent; transition: background .18s ${EASE}, color .18s ${EASE}; }
         .btn-flat:hover { background: var(--wash); color: ${C.text}; }
         .btn-flat:active { background: var(--wash-strong); }
@@ -218,16 +222,25 @@ export default function App() {
       {/* Frosted glass rather than a hard rule: the blur separates the header
           from whatever scrolls under it without drawing a line across the page. */}
       <header style={{ position: "sticky", top: 0, background: GLASS, backdropFilter: "blur(18px) saturate(180%)", WebkitBackdropFilter: "blur(18px) saturate(180%)", boxShadow: SHADOW.sm, zIndex: 10 }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+        {/* `minWidth: 0` matters: without it the flex children refuse to shrink
+            below their content, and on a narrow phone the row silently pushes
+            the theme toggle off the right edge of the page. */}
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <a href="/" onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); navigate(null); }}
-            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, color: C.text, fontFamily: "inherit", padding: 0, textDecoration: "none" }}>
+            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, color: C.text, fontFamily: "inherit", padding: 0, textDecoration: "none", flexShrink: 0 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, background: LOGO, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 17, color: "#fff", boxShadow: `${GLOSS}, ${SHADOW.sm}`, textShadow: "0 1px 1px rgba(74,53,36,.3)" }}>P</div>
-            <span style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 23, fontWeight: 700 }}>{HUB_NAME}</span>
+            <span className="hdr-word" style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 23, fontWeight: 700 }}>{HUB_NAME}</span>
           </a>
-          {game && <><span style={{ color: C.line }}>/</span><span style={{ fontSize: 15, fontWeight: 700, color: game.accent }}>{game.name}</span></>}
-          {roomCode && <span style={{ fontSize: 12, fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em" }}>{roomCode}</span>}
-          <div style={{ flex: 1 }} />
-          {game && <Btn variant="subtle" onClick={() => navigate(null)}>← All games</Btn>}
+          {game && <>
+            <span className="hdr-word" style={{ color: C.line }}>/</span>
+            {/* Truncates rather than pushing the controls off screen. */}
+            <span style={{ fontSize: 15, fontWeight: 700, color: game.accent, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.name}</span>
+          </>}
+          {roomCode && <span style={{ fontSize: 12, fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em", flexShrink: 0 }}>{roomCode}</span>}
+          <div style={{ flex: 1, minWidth: 8 }} />
+          {game && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+            <span aria-hidden>←</span><span className="hdr-word"> All games</span>
+          </Btn>}
           <ThemeToggle />
         </div>
       </header>

@@ -1,7 +1,8 @@
 # Puzzlr
 
-A hub of small browser games. Seven games, five of which can also be played
+A hub of small browser games. Nine games, five of which can also be played
 online with friends over an invite link. No sign-up, no accounts, no database.
+Light and dark themes, following the device until the visitor picks one.
 
 - Live: <https://playpuzzlr.com> (also `www.`, and the older `puzzlr-one.vercel.app`)
 - Repo: `ojinaf2/puzzlr`
@@ -37,6 +38,8 @@ src/
   games/
     index.jsx         THE REGISTRY. Adding a game means one entry here.
     <Game>.jsx        one file per game
+    <game>Rules.js    pure rules for Snake and Minesweeper, split out so node
+                      can test them without a browser
 scripts/              build-time generators, never shipped to the browser
 test/                 node test suites for src/, no framework
 server/
@@ -143,7 +146,7 @@ code if an image fails, so two-letter codes on screen mean the path is wrong.
 ```bash
 npm install && npm run dev          # the site, on :5173
 npm run build                       # production build
-npm test                            # daily-puzzle bookkeeping
+npm test                            # daily puzzles, Snake and Minesweeper rules
 npm run build:words                 # regenerate src/data/hangmanWords.js
 
 cd server
@@ -166,8 +169,16 @@ Miniflare and plays real games over websockets. Run them after touching
 `server/`. Several real bugs were caught this way, including settings being
 discarded on start and untimed quizzes rejecting every answer.
 
-`test/daily.test.mjs` (`npm test`) covers the daily bookkeeping in the same
-style. It is the exception to the rule below, because its cases span days.
+`npm test` runs the browser-side suites — daily bookkeeping, Snake's movement
+rules and Minesweeper's mechanics. They are the exception to the rule below,
+and the reason each is an exception is the same: the interesting cases cannot
+be reached by clicking. Daily's span days, Snake's depend on where an apple
+randomly spawned, and Minesweeper's need many random boards to show that first
+click safety and mine counts hold in general rather than once.
+
+That is also why Snake and Minesweeper keep their rules in a plain `.js`
+module beside the component. Node cannot import JSX, so rules buried in a
+`.jsx` file cannot be tested at all.
 
 For the browser, drive the real UI rather than trusting a build to pass. Note
 that two tabs on the same origin share `localStorage`, so they are the same
@@ -176,8 +187,9 @@ and it also means both tabs share one daily record.
 
 ## Deliberately not built
 
-Ads, About and Privacy Policy pages, and any kind of account system. Hangman
-and Imposter are local-only for now. Ask before adding any of these.
+Ads, About and Privacy Policy pages, and any kind of account system. Hangman,
+Imposter, Snake and Minesweeper are local-only for now. Ask before adding any
+of these.
 
 Persistent stats used to be on this list. They are still off for ordinary
 play — every game's score resets on refresh — but daily puzzles keep a streak
