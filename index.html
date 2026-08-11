@@ -4,9 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Puzzlr — seven quick browser games, no sign-up</title>
-    <meta name="description" content="Seven hand-built games in one place: Wordle, Connect 4, Hangman, Imposter, Wavelength, Flag Quiz and Tic-Tac-Toe. No sign-up, no apps, no timer pressure." />
+    <title>Puzzlr — nine quick browser games, no sign-up</title>
+    <meta name="description" content="Nine hand-built games in one place: Wordle, Minesweeper, Snake, Connect 4, Hangman, Imposter, Wavelength, Flag Quiz and Tic-Tac-Toe. No sign-up, no apps, no timer pressure." />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#b5651d" />
+
+    <!-- Applies the saved theme before the first paint. Without this the page
+         renders light and then flips, which is the flash every dark-mode site
+         gets wrong. Deliberately inline and synchronous: a deferred script
+         would run too late to help. Mirrors src/shared/theme.js. -->
+    <script>
+      try {
+        var t = localStorage.getItem('puzzlr:theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {}
+    </script>
 
     <!-- Link previews in messages, chats and feeds. These must be absolute URLs,
          so they point at the live domain rather than the vercel.app address. -->

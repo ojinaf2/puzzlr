@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build-sitemap.mjs && vite build",
     "preview": "vite preview",
     "test": "node test/daily.test.mjs",
     "build:words": "node scripts/build-hangman-words.mjs"

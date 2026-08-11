@@ -40,7 +40,8 @@ import Hangman from './Hangman.jsx';
 */
 export const GAMES = [
   {
-    id: "wordle", name: "Wordle", tag: "Word guessing", accent: "#3aa76d",
+    id: "wordle", name: "Wordle", tag: "Word guessing",
+    blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — the same word everyone else gets — or practise as long as you like. No sign-up.", accent: "#3aa76d",
     players: "1 player", daily: true, Comp: Wordle,
     icon: (
       <g>
@@ -66,7 +67,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "wavelength", name: "Wavelength", tag: "Read minds", accent: "#4ec3c7",
+    id: "wavelength", name: "Wavelength", tag: "Read minds",
+    blurb: "Read your friends' minds. One player gives a clue, everyone else guesses where it sits on a hidden scale. Two to seven players, online over an invite link.", accent: "#4ec3c7",
     players: "2 players", Comp: Wavelength,
     icon: (
       <g>
@@ -85,7 +87,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "tictactoe", name: "Tic-Tac-Toe", tag: "Classic 3-in-a-row", accent: "#6c8cff",
+    id: "tictactoe", name: "Tic-Tac-Toe", tag: "Classic 3-in-a-row",
+    blurb: "The classic three-in-a-row, for two players on one device or online with a friend. No sign-up, no apps.", accent: "#6c8cff",
     players: "2 players", Comp: TicTacToe,
     icon: (
       <g>
@@ -108,7 +111,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "flags", name: "Flag Quiz", tag: "Guess the country", accent: "#d4a13c",
+    id: "flags", name: "Flag Quiz", tag: "Guess the country",
+    blurb: "Name the country from its flag. Race the clock on your own or challenge a friend online. Nearly two hundred flags.", accent: "#d4a13c",
     players: "1 player", Comp: FlagQuiz,
     icon: (
       <g>
@@ -128,7 +132,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "connect4", name: "Connect 4", tag: "Four in a row", accent: "#1b64d4",
+    id: "connect4", name: "Connect 4", tag: "Four in a row",
+    blurb: "Drop your discs and get four in a row before your opponent does. Two players on one device, or online over an invite link.", accent: "#1b64d4",
     players: "2 players", Comp: ConnectFour,
     icon: (
       <g>
@@ -159,7 +164,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "hangman", name: "Hangman", tag: "Save the cowboy", accent: "#9c7a54",
+    id: "hangman", name: "Hangman", tag: "Save the cowboy",
+    blurb: "Guess the word one letter at a time and save the cowboy. A new daily word for everyone, a bot to play against, or pass and play with friends.", accent: "#9c7a54",
     players: "1-6 players", daily: true, Comp: Hangman,
     icon: (
       <g>
@@ -182,7 +188,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "imposter", name: "Imposter", tag: "Spot the faker", accent: "#c0492f",
+    id: "imposter", name: "Imposter", tag: "Spot the faker",
+    blurb: "Everyone sees the same secret word — except one player. Talk your way through the round and spot the faker. Three to ten players on one device.", accent: "#c0492f",
     players: "3-10 players", Comp: Imposter,
     icon: (
       <g>

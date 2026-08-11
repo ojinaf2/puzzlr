@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Invite links are private and short-lived, and every room for a game is the
+# same page to a crawler. The canonical tag already points rooms back at the
+# plain game URL; this keeps them out of the index entirely.
+Disallow: /*/??????
+
+Sitemap: https://playpuzzlr.com/sitemap.xml
