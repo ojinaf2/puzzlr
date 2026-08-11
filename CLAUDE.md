@@ -30,11 +30,15 @@ src/
     ui.jsx            Btn, TileBtn, Centered, hStyle, pStyle
     useRoom.js        websocket connection to a room, with reconnection
     online.jsx        name entry, invite link, connection banner, lobby screens
+    daily.js          daily puzzle selection, streaks, sharing
+    dailyUi.jsx       the Daily/Practice tabs and the end-of-puzzle stats panel
     utils.js          rand, shuffle
   data/               word lists, countries, spectra — shared with the server
   games/
     index.jsx         THE REGISTRY. Adding a game means one entry here.
     <Game>.jsx        one file per game
+scripts/              build-time generators, never shipped to the browser
+test/                 node test suites for src/, no framework
 server/
   src/index.js        Worker + the Room Durable Object (transport, no rules)
   src/games.js        the rules of every online game, one entry per game
@@ -51,10 +55,52 @@ Online as well: add an entry to `server/src/games.js` (`create`, `start`,
 `move`, plus optional `config`, `deadline`, `timeUp`, `forfeit`, `view`), then
 have the component branch on the `roomCode` prop it is handed.
 
+## Daily puzzles
+
+Wordle and Hangman each have one puzzle a day, the same for everyone, with no
+server involved: `src/shared/daily.js` shuffles the answer list with a fixed
+seed and reads entry `day - 1`, so every browser works out the same answer for
+itself. Nothing repeats until the list is exhausted — 6.8 years for Wordle.
+The day rolls over at the player's local midnight, not UTC.
+
+Streaks and guess distributions live in `localStorage` under
+`puzzlr:daily:<gameId>`, which makes them per-device on purpose — there are no
+accounts to attach a history to, and clearing site data resets a streak.
+`finishDaily` is idempotent per day, so a second tab cannot inflate a streak.
+
+`test/daily.test.mjs` covers the bookkeeping, because the interesting cases
+span days and the UI cannot reach them without changing the clock.
+
+## Word banks
+
+`src/data/words.js` (Wordle) is hand-maintained and already a **superset of the
+full ENABLE dictionary** — 14,855 accepted guesses against ENABLE's 12,578.
+There is nothing to gain by importing a dictionary into it; if a real word is
+being rejected, the bug is elsewhere.
+
+`src/data/hangmanWords.js` is **generated — do not hand-edit it**:
+
+```bash
+npm run build:words        # rewrite it; add --dry to see the stats only
+```
+
+The generator takes WordNet's physically concrete noun categories, drops
+plurals, gerunds, profanity and words better known as verbs, then sorts what
+survives into difficulties by SCOWL commonness band. It keeps every word the
+old hand-written banks had. A plain frequency cutoff is not good enough: the
+commonest English words are "about" and "accept", which make miserable
+hangman. Its dictionaries are devDependencies, so nothing new ships.
+
 ## Conventions
 
-- **No runtime dependencies.** React and nothing else. Keep it that way unless
-  there is a strong reason.
+- **No runtime dependencies.** React, plus `@vercel/analytics`, and nothing
+  else. Keep it that way unless there is a strong reason. Build-time
+  devDependencies are fine — the word-bank generator uses several, and only its
+  committed output reaches the browser.
+  - Analytics is mounted once in `src/App.jsx` and imported from
+    `@vercel/analytics/react`. Vercel's dashboard defaults its snippet to
+    Next.js; the `/next` import does not build here. Do not remove it as
+    "an unused dependency" — it is deliberate, and it is cookieless.
 - **Inline styles**, using the `C` palette from `shared/theme.js`. There is no
   CSS framework and `src/index.css` is deliberately almost empty.
 - Times New Roman for headings and the logo, Libre Franklin for everything else.
@@ -84,6 +130,8 @@ code if an image fails, so two-letter codes on screen mean the path is wrong.
 ```bash
 npm install && npm run dev          # the site, on :5173
 npm run build                       # production build
+npm test                            # daily-puzzle bookkeeping
+npm run build:words                 # regenerate src/data/hangmanWords.js
 
 cd server
 npm install
@@ -105,15 +153,24 @@ Miniflare and plays real games over websockets. Run them after touching
 `server/`. Several real bugs were caught this way, including settings being
 discarded on start and untimed quizzes rejecting every answer.
 
+`test/daily.test.mjs` (`npm test`) covers the daily bookkeeping in the same
+style. It is the exception to the rule below, because its cases span days.
+
 For the browser, drive the real UI rather than trusting a build to pass. Note
 that two tabs on the same origin share `localStorage`, so they are the same
-player — testing two players needs a scripted websocket client as the opponent.
+player — testing two players needs a scripted websocket client as the opponent,
+and it also means both tabs share one daily record.
 
 ## Deliberately not built
 
-Persistent stats (scores reset on refresh), ads, About and Privacy Policy
-pages, and any kind of account system. Hangman and Imposter are local-only for
-now. Ask before adding any of these.
+Ads, About and Privacy Policy pages, and any kind of account system. Hangman
+and Imposter are local-only for now. Ask before adding any of these.
+
+Persistent stats used to be on this list. They are still off for ordinary
+play — every game's score resets on refresh — but daily puzzles keep a streak
+and a guess distribution in `localStorage`, because a daily challenge without a
+streak is not really one. That is the whole of the exception: no server, no
+account, no history beyond the current device.
 
 Note that ads would make the site commercial, which Vercel's free Hobby plan
 does not allow — that would mean $20/month, which is why it has been left
