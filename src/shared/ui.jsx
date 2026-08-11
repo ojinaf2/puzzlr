@@ -1,15 +1,40 @@
 import { useState } from 'react';
-import { C } from './theme.js';
+import { C, SHADOW, GLOSS, GLOSS_SOFT, grad, paleGrad, EASE } from './theme.js';
 
-/* ============================= SHARED UI ============================= */
+/* ============================= SHARED UI =============================
+   Buttons are built from three things stacked: a vertical gradient so the face
+   is lit from above, an inset white line along the top edge so it reads as
+   convex, and two drop shadows so it sits above the page rather than on it.
+   The press itself lives in CSS (`.btn3d:active` in Puzzlr.jsx) rather than in
+   JS handlers, because :active is the only version that behaves correctly for
+   a finger as well as a mouse. */
 export function Btn({ children, onClick, variant = "primary", style = {}, ...p }) {
-  const base = { border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "filter .15s" };
-  const styles = {
-    primary: { background: C.accent, color: "#fff", padding: "11px 24px", fontSize: 15 },
-    ghost: { background: C.panel2, color: C.text, padding: "10px 20px", fontSize: 14 },
-    subtle: { background: "transparent", color: C.dim, padding: "8px 14px", fontSize: 13, border: `1px solid ${C.line}` },
+  const base = {
+    border: "none", borderRadius: 12, fontWeight: 700, cursor: "pointer",
+    fontFamily: "inherit", position: "relative",
+    transition: `transform .18s ${EASE}, box-shadow .18s ${EASE}, filter .18s ${EASE}`,
   };
-  return <button onClick={onClick} style={{ ...base, ...styles[variant], ...style }} onMouseDown={(e)=>e.currentTarget.style.filter="brightness(.9)"} onMouseUp={(e)=>e.currentTarget.style.filter="none"} onMouseLeave={(e)=>e.currentTarget.style.filter="none"} {...p}>{children}</button>;
+  const styles = {
+    primary: {
+      background: grad(C.accent), color: "#fff", padding: "12px 26px", fontSize: 15,
+      boxShadow: `${GLOSS}, ${SHADOW.md}`, textShadow: "0 1px 1px rgba(74,53,36,.28)",
+    },
+    ghost: {
+      background: paleGrad(C.panel2), color: C.text, padding: "11px 22px", fontSize: 14,
+      boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
+    },
+    // Tertiary: deliberately flat. If everything is lifted, nothing reads as lifted.
+    subtle: {
+      background: "transparent", color: C.dim, padding: "9px 16px", fontSize: 13,
+      border: `1px solid ${C.line}`, borderRadius: 11,
+    },
+  };
+  return (
+    <button className={variant === "subtle" ? "btn-flat" : "btn3d"} onClick={onClick}
+      style={{ ...base, ...styles[variant], ...style }} {...p}>
+      {children}
+    </button>
+  );
 }
 
 // Reusable stylish tile: rounded, soft shadow, subtle hover-lift. Used for answer choices.
@@ -19,12 +44,13 @@ export function TileBtn({ children, onClick, disabled, noPad, style = {} }) {
   return (
     <button onClick={onClick} disabled={disabled}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      className={disabled ? undefined : "tile3d"}
       style={{
-        borderRadius: 14, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
-        color: C.text, transition: "transform .13s ease, box-shadow .13s ease, background .2s",
+        borderRadius: 16, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
+        color: C.text, transition: `transform .2s ${EASE}, box-shadow .2s ${EASE}`,
         transform: lift ? "translateY(-3px)" : "none",
-        boxShadow: lift ? "0 10px 22px rgba(74,53,36,.2)" : "0 3px 10px rgba(74,53,36,.12)",
-        ...(noPad ? {} : { background: C.panel, border: "2px solid transparent" }),
+        boxShadow: lift ? `${GLOSS_SOFT}, ${SHADOW.lg}` : `${GLOSS_SOFT}, ${SHADOW.sm}`,
+        ...(noPad ? {} : { background: paleGrad(C.panel), border: "2px solid transparent" }),
         ...style,
       }}>
       {children}

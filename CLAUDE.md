@@ -103,6 +103,19 @@ hangman. Its dictionaries are devDependencies, so nothing new ships.
     "an unused dependency" — it is deliberate, and it is cookieless.
 - **Inline styles**, using the `C` palette from `shared/theme.js`. There is no
   CSS framework and `src/index.css` is deliberately almost empty.
+- **Depth comes from `shared/theme.js`, not from ad-hoc shadows.** Use
+  `grad(colour)` for a lit face, `GLOSS` for the inset white top edge, and
+  `SHADOW.sm/md/lg` for elevation. `SHADOW` is two shadows deliberately: a
+  tight contact shadow plus a wide ambient one. One blurry shadow is what
+  makes a "3D" control look cheap.
+  - A raised control gets `className="btn3d"`; a surface that sets its own
+    hover transform inline uses `tile3d` or `btn3d-lift` instead, which claim
+    only the pressed state. The press lives in CSS `:active` in `Puzzlr.jsx`,
+    never in `onMouseDown` handlers — those never fire for a finger and can
+    leave a control stuck down if the pointer leaves mid-tap.
+  - Icon gradients need ids unique across the whole of `games/index.jsx`. All
+    seven render on the landing page at once, and a duplicate id silently
+    makes one icon adopt another's colours.
 - Times New Roman for headings and the logo, Libre Franklin for everything else.
 - Animations live in a `<style>` block inside the game that uses them, and are
   always disabled under `prefers-reduced-motion`.

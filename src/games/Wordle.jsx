@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { C } from '../shared/theme.js';
+import { C, GLOSS, grad } from '../shared/theme.js';
 import { rand } from '../shared/utils.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { validSet, answerList } from '../data/words.js';
@@ -153,10 +153,17 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
             <div key={r} className={isShake ? "row-shake" : isWin ? "win-bounce" : ""} style={{ display: "grid", gridTemplateColumns: `repeat(${W_COLS}, 1fr)`, gap: 6 }}>
               {Array.from({ length: W_COLS }).map((_, c) => {
                 const ch = g[c] || ""; const revealed = sc && revealRow >= r; const st = revealed ? sc[c] : null;
-                const bg = st === "correct" ? C.correct : st === "present" ? C.present : st === "absent" ? C.absent : "transparent";
-                const bd = st ? bg : ch ? "#9c7a54" : C.line;
-                const txt = st ? "#fff" : C.text;
-                return <div key={c} className={revealed ? "tile-flip" : ch && !sc ? "tile-fill" : ""} style={{ width: 56, height: 56, display: "grid", placeItems: "center", background: bg, border: `2px solid ${bd}`, borderRadius: 9, fontSize: 27, fontWeight: 800, textTransform: "uppercase", color: txt, animationDelay: revealed ? `${c * 0.18}s` : "0s" }}>{ch}</div>;
+                const face = st === "correct" ? C.correct : st === "present" ? C.present : st === "absent" ? C.absent : null;
+                // An empty tile still needs an edge to show where a letter goes,
+                // so only scored tiles lose their outline in favour of a fill.
+                const bd = face ? "transparent" : ch ? "#c9a87e" : C.line;
+                return <div key={c} className={revealed ? "tile-flip" : ch && !sc ? "tile-fill" : ""}
+                  style={{ width: 56, height: 56, display: "grid", placeItems: "center",
+                    background: face ? grad(face) : "transparent", border: `2px solid ${bd}`, borderRadius: 12,
+                    boxShadow: face ? `${GLOSS}, 0 1px 2px rgba(74,53,36,.16), 0 4px 10px rgba(74,53,36,.13)` : "none",
+                    fontSize: 27, fontWeight: 800, textTransform: "uppercase",
+                    color: face ? "#fff" : C.text, textShadow: face ? "0 1px 2px rgba(74,53,36,.3)" : "none",
+                    animationDelay: revealed ? `${c * 0.18}s` : "0s" }}>{ch}</div>;
               })}
             </div>
           );
@@ -175,9 +182,11 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
     </div>
   );
 }
+/* Press handling is the `.btn3d` CSS rule rather than the mousedown/mouseup
+   handlers this used to carry: those never fired for a finger, and could leave
+   a key stuck in the pressed position if the pointer left mid-tap. */
 function KbKey({ children, onClick, wide, bg = "#e0be93", kc = C.text }) {
-  return <button onClick={onClick} style={{ minWidth: wide ? 54 : 30, height: 58, background: bg, color: kc, border: "none", borderRadius: 9, fontSize: wide ? 12 : 16, fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 48, boxShadow: "0 2px 5px rgba(74,53,36,.18)", transition: "transform .08s", touchAction: "manipulation", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
-    onMouseDown={(e)=>e.currentTarget.style.transform="translateY(1px)"} onMouseUp={(e)=>e.currentTarget.style.transform="none"} onMouseLeave={(e)=>e.currentTarget.style.transform="none"}>{children}</button>;
+  return <button className="btn3d" onClick={onClick} style={{ minWidth: wide ? 54 : 30, height: 58, background: grad(bg), color: kc, border: "none", borderRadius: 11, fontSize: wide ? 12 : 16, fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 48, boxShadow: `${GLOSS}, 0 1px 2px rgba(74,53,36,.16), 0 3px 8px rgba(74,53,36,.12)`, textShadow: kc === "#fff" ? "0 1px 1px rgba(74,53,36,.3)" : "none", touchAction: "manipulation", userSelect: "none" }}>{children}</button>;
 }
 
 /* The on-screen keyboard. It reclaims the page's side padding so the keys get
