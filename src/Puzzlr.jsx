@@ -33,7 +33,12 @@ function GameCard({ game, onClick }) {
         <div style={{ fontSize: 13.5, color: C.dim }}>{game.tag}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
-        <span style={{ fontSize: 12, color: C.dim, background: C.bg, padding: "3px 9px", borderRadius: 20 }}>{game.players}</span>
+        <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: C.dim, background: C.bg, padding: "3px 9px", borderRadius: 20 }}>{game.players}</span>
+          {game.daily && (
+            <span style={{ fontSize: 12, fontWeight: 700, color: game.accent, background: C.bg, padding: "3px 9px", borderRadius: 20 }}>Daily</span>
+          )}
+        </span>
         <span style={{ fontSize: 13, fontWeight: 700, color: game.accent }}>Play →</span>
       </div>
     </a>

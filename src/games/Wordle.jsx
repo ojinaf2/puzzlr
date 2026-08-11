@@ -6,6 +6,8 @@ import { validSet, answerList } from '../data/words.js';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
+import { ModeTabs, DailyPanel } from '../shared/dailyUi.jsx';
 
 /* ============================= WORDLE ============================= */
 const W_ROWS = 6, W_COLS = 5;
@@ -24,21 +26,84 @@ export default function Wordle({ roomCode, navigate }) {
   return <LocalWordle navigate={navigate} />;
 }
 
+const DAILY_ID = "wordle";
+const EMOJI = { correct: "🟩", present: "🟨", absent: "⬜" };
+
+/* The shell: which puzzle is being played, and everything that outlives a
+   single board. The board itself is remounted whenever that changes, which is
+   what `key` is doing below — it saves having to reset eight pieces of state
+   by hand every time the player switches mode or asks for another word. */
 function LocalWordle({ navigate }) {
-  const [answer, setAnswer] = useState(() => answerList[rand(answerList.length)]);
-  const [guesses, setGuesses] = useState([]);
-  const [scores, setScores] = useState([]);
+  const day = todayNumber();
+  const [mode, setMode] = useState("daily");
+  const [record, setRecord] = useState(() => todaysRecord(DAILY_ID, day));
+  const [round, setRound] = useState(0);
+  const [practiceAnswer, setPracticeAnswer] = useState(() => answerList[rand(answerList.length)]);
+
+  const daily = mode === "daily";
+  const answer = daily ? dailyPick(answerList, DAILY_ID, day) : practiceAnswer;
+  const finished = daily && !!record.done;
+
+  const nextPractice = () => {
+    setPracticeAnswer(answerList[rand(answerList.length)]);
+    setRound((r) => r + 1);
+  };
+
+  const buildShare = () => {
+    const rows = (record.board || []).map((g) =>
+      scoreGuess(g, answer).map((s) => EMOJI[s]).join(""));
+    const score = record.done?.won ? `${rows.length}/${W_ROWS}` : `X/${W_ROWS}`;
+    return `Puzzlr Wordle #${day} ${score}\n\n${rows.join("\n")}\n\nplaypuzzlr.com`;
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+      <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done} />
+      {daily && (
+        <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 10, textAlign: "center" }}>
+          Puzzle #{day} — the same word for everyone today
+        </div>
+      )}
+
+      <WordleBoard
+        key={daily ? `d${day}` : `p${round}`}
+        answer={answer}
+        initial={daily ? record.board || [] : []}
+        onProgress={daily ? (gs) => saveBoard(DAILY_ID, day, gs) : null}
+        onDone={daily ? (won, count) => setRecord(finishDaily(DAILY_ID, day, won, won ? String(count) : "X")) : null}
+        onNext={daily ? null : nextPractice}
+      />
+
+      {finished && (
+        <DailyPanel record={record} day={day} title="Wordle" buildShare={buildShare}
+          buckets={["1", "2", "3", "4", "5", "6"]} caption="Guess distribution" />
+      )}
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
+        {finished && <Btn onClick={() => setMode("practice")}>Keep playing</Btn>}
+        {roomServerUrl() && (
+          <Btn variant="subtle" onClick={() => navigate('wordle', makeRoomCode())}>Race a friend online</Btn>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
+  const [guesses, setGuesses] = useState(initial);
+  const [scores, setScores] = useState(() => initial.map((g) => scoreGuess(g, answer)));
   const [current, setCurrent] = useState("");
-  const [status, setStatus] = useState("playing");
+  const [status, setStatus] = useState(() =>
+    initial.includes(answer) ? "won" : initial.length >= W_ROWS ? "lost" : "playing");
   const [toast, setToast] = useState("");
   const [shake, setShake] = useState(false);
-  const [revealRow, setRevealRow] = useState(-1);
+  // Restored rows are already coloured in; only new guesses animate.
+  const [revealRow, setRevealRow] = useState(initial.length - 1);
   const tt = useRef(null);
   const bridgeRef = useRef(null);
   const openPhoneKeyboard = () => bridgeRef.current?.focus();
 
   const showToast = useCallback((m) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(""), 1500); }, []);
-  const reset = useCallback(() => { setAnswer(answerList[rand(answerList.length)]); setGuesses([]); setScores([]); setCurrent(""); setStatus("playing"); setRevealRow(-1); }, []);
 
   const submit = useCallback(() => {
     if (status !== "playing") return;
@@ -47,9 +112,10 @@ function LocalWordle({ navigate }) {
     const sc = scoreGuess(current, answer);
     const ng = [...guesses, current], ns = [...scores, sc];
     setGuesses(ng); setScores(ns); setRevealRow(ng.length - 1); setCurrent("");
-    if (current === answer) { setStatus("won"); setTimeout(() => showToast(["Genius","Magnificent","Impressive","Splendid","Great","Phew"][ng.length - 1]), 1500); }
-    else if (ng.length === W_ROWS) { setStatus("lost"); setTimeout(() => showToast(answer.toUpperCase()), 1500); }
-  }, [current, answer, guesses, scores, status, showToast]);
+    onProgress?.(ng);
+    if (current === answer) { setStatus("won"); onDone?.(true, ng.length); setTimeout(() => showToast(["Genius","Magnificent","Impressive","Splendid","Great","Phew"][ng.length - 1]), 1500); }
+    else if (ng.length === W_ROWS) { setStatus("lost"); onDone?.(false, ng.length); setTimeout(() => showToast(answer.toUpperCase()), 1500); }
+  }, [current, answer, guesses, scores, status, showToast, onProgress, onDone]);
 
   const onKey = useCallback((k) => {
     if (status !== "playing") return;
@@ -96,12 +162,11 @@ function LocalWordle({ navigate }) {
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
-        {status !== "playing" && <Btn onClick={reset}>{status === "won" ? "Next word" : "Try another"}</Btn>}
-        {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => navigate('wordle', makeRoomCode())}>Race a friend online</Btn>
-        )}
-      </div>
+      {onNext && status !== "playing" && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, justifyContent: "center" }}>
+          <Btn onClick={onNext}>{status === "won" ? "Next word" : "Try another"}</Btn>
+        </div>
+      )}
       <Keyboard onKey={onKey} keyState={keyState} />
       <button onClick={openPhoneKeyboard}
         style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: 13, fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>

@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { DIFFICULTIES, pickWord, suggestSpelling } from '../data/hangmanWords.js';
+import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
+import { DailyPanel } from '../shared/dailyUi.jsx';
 
 /* ============================= HANGMAN =============================
    Two ways to play. Against the bot it draws a word from the banks at the
@@ -17,9 +19,12 @@ const labelStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "upper
 
 const cleanWord = (raw) => raw.toUpperCase().replace(/[^A-Z ]/g, "").replace(/\s+/g, " ").trim();
 
+const DAILY_ID = "hangman";
+const DAILY_DIFFICULTY = "medium";
+
 export default function Hangman() {
   const [screen, setScreen] = useState("menu");   // menu | botSetup | localSetup | setWord | handoff | play | final
-  const [mode, setMode] = useState(null);         // bot | local
+  const [mode, setMode] = useState(null);         // bot | local | daily
   const [difficulty, setDifficulty] = useState("easy");
   const [rounds, setRounds] = useState(5);
   const [players, setPlayers] = useState([{ id: 1, name: "Player 1" }, { id: 2, name: "Player 2" }]);
@@ -32,6 +37,12 @@ export default function Hangman() {
   const nextId = useRef(3);
   const scoredRef = useRef(false);
 
+  const day = todayNumber();
+  const [record, setRecord] = useState(() => todaysRecord(DAILY_ID, day));
+  const dailyWord = useMemo(
+    () => cleanWord(dailyPick(DIFFICULTIES.find((d) => d.key === DAILY_DIFFICULTY).words, DAILY_ID, day)),
+    [day]);
+
   const setterIndex = (round - 1) % players.length;
   const setter = players[setterIndex];
   const nameOf = (p, i) => (p.name.trim() || `Player ${i + 1}`);
@@ -42,13 +53,27 @@ export default function Hangman() {
   const lost = wrongLetters.length >= MAX_WRONG;
   const over = won || lost;
 
+  /* Guesses in the order they were made, hit or miss. It gives away how long
+     the attempt took without giving away the word itself. */
+  const buildDailyShare = () => {
+    const trail = guessed.map((l) => (needed.has(l) ? "🟩" : "🟥")).join("");
+    const headline = won ? `solved, ${wrongLetters.length} wrong` : "not solved";
+    return `Puzzlr Hangman #${day} — ${headline}\n\n${trail}\n\nplaypuzzlr.com`;
+  };
+
   /* Award the round exactly once, whichever way it ended. */
   useEffect(() => {
     if (!over || scoredRef.current) return;
     scoredRef.current = true;
     if (mode === "bot") { if (won) setBotWins((w) => w + 1); }
+    else if (mode === "daily") setRecord(finishDaily(DAILY_ID, day, won, won ? String(wrongLetters.length) : "X"));
     else if (!won) setScores((s) => ({ ...s, [setter.id]: (s[setter.id] || 0) + 1 }));
-  }, [over, won, mode, setter]);
+  }, [over, won, mode, setter, day, wrongLetters.length]);
+
+  /* Keep today's half-guessed board, so a refresh does not cost the attempt. */
+  useEffect(() => {
+    if (mode === "daily" && screen === "play") saveBoard(DAILY_ID, day, guessed);
+  }, [mode, screen, guessed, day]);
 
   /* Physical keyboard, same as Wordle. */
   useEffect(() => {
@@ -75,6 +100,13 @@ export default function Hangman() {
     setMode("bot"); setBotWins(0);
     beginRound(1, cleanWord(pickWord(difficulty)));
   };
+  /* One word, once a day, picked up wherever it was left. */
+  const startDaily = () => {
+    setMode("daily"); setRound(1); setWord(dailyWord);
+    setGuessed(record.board || []);
+    scoredRef.current = !!record.done;
+    setScreen("play");
+  };
   const startLocal = () => {
     setMode("local"); setScores({}); setRound(1); setDraft(""); setScreen("setWord");
   };
@@ -97,9 +129,14 @@ export default function Hangman() {
       <h2 style={hStyle}>Hangman</h2>
       <p style={pStyle}>Guess the word one letter at a time. Seven wrong guesses and the cowboy is done for.</p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-        <Btn onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Play the bot</Btn>
+        <Btn onClick={startDaily}>Daily word{record.done ? " ✓" : ""}</Btn>
+        <Btn variant="ghost" onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Play the bot</Btn>
         <Btn variant="ghost" onClick={() => { setMode("local"); setScreen("localSetup"); }}>Pass and play</Btn>
       </div>
+      <p style={{ ...pStyle, fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+        Everyone gets the same daily word — puzzle #{day}.
+        {record.streak > 0 && ` You are ${record.streak} day${record.streak === 1 ? "" : "s"} into a streak.`}
+      </p>
     </Centered>
   );
 
@@ -257,10 +294,10 @@ export default function Hangman() {
     <Centered>
       <Anim />
       <div style={{ display: "flex", gap: 18, fontSize: 13, color: C.dim, marginBottom: 6, flexWrap: "wrap", justifyContent: "center" }}>
-        <span>Round {round} of {rounds}</span>
-        {mode === "bot"
-          ? <><span style={{ color: C.accent2 }}>Solved {botWins}</span><span>{DIFFICULTIES.find((d) => d.key === difficulty).name}</span></>
-          : <span style={{ color: C.accent2 }}>Set by {nameOf(setter, setterIndex)}</span>}
+        {mode === "daily" ? <span>Puzzle #{day}</span> : <span>Round {round} of {rounds}</span>}
+        {mode === "bot" && <><span style={{ color: C.accent2 }}>Solved {botWins}</span><span>{DIFFICULTIES.find((d) => d.key === difficulty).name}</span></>}
+        {mode === "daily" && record.streak > 0 && <span style={{ color: C.accent2 }}>Streak {record.streak}</span>}
+        {mode === "local" && <span style={{ color: C.accent2 }}>Set by {nameOf(setter, setterIndex)}</span>}
         <span style={{ color: livesLeft <= 2 ? C.danger : C.dim }}>{livesLeft} left</span>
       </div>
 
@@ -293,7 +330,15 @@ export default function Hangman() {
                    : `${nameOf(setter, setterIndex)} scores a point.`}
             </p>
           )}
-          <Btn onClick={nextRound}>{round >= rounds ? "See results" : "Next round"}</Btn>
+          {mode === "daily" ? (
+            <>
+              <DailyPanel record={record} day={day} title="word" buildShare={buildDailyShare}
+                buckets={["0", "1", "2", "3", "4", "5", "6"]} caption="Wrong guesses" />
+              <Btn variant="ghost" onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Keep playing</Btn>
+            </>
+          ) : (
+            <Btn onClick={nextRound}>{round >= rounds ? "See results" : "Next round"}</Btn>
+          )}
         </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", maxWidth: 484 }}>
