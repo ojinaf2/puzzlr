@@ -179,6 +179,32 @@ for (const level of LEVELS) {
   eq('chording on a bad flag loses', g.status, 'lost');
 }
 
+/* ------------------------------------------------------- turned on its side
+   Hard is laid out sideways on a phone. It has to stay the same game: same
+   cell count, same mines, and still first-click-safe. */
+{
+  const hard = LEVELS.find((l) => l.key === 'hard');
+  const tall = R.transpose(hard);
+  eq('transposing swaps the axes', [tall.rows, tall.cols], [hard.cols, hard.rows]);
+  eq('and keeps the mine count', tall.mines, hard.mines);
+  eq('and the cell count', tall.rows * tall.cols, hard.rows * hard.cols);
+
+  const g = newGame(tall);
+  eq('a transposed board is the right size', g.state.length, 480);
+  eq('and carries its own shape', [g.level.rows, g.level.cols], [30, 16]);
+
+  let breaches = 0, wrongCount = 0;
+  for (let t = 0; t < 12; t++) {
+    const safe = Math.floor(Math.random() * 480);
+    const p = plant(newGame(tall), safe);
+    if (count(p.mine, 1) !== 99) wrongCount++;
+    if (p.mine[safe]) breaches++;
+    for (const n of neighbours(tall, safe)) if (p.mine[n]) breaches++;
+  }
+  eq('transposed boards still get 99 mines', wrongCount, 0);
+  eq('transposed boards are still first-click safe', breaches, 0);
+}
+
 /* ------------------------------------------------------------------ misc */
 eq('time formats as m:ss', [0, 7, 47, 60, 605].map(formatTime), ['0:00', '0:07', '0:47', '1:00', '10:05']);
 

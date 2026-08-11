@@ -209,9 +209,9 @@ export default function Snake() {
             display: "grid", placeItems: "center", pointerEvents: "none",
           }}>
             <div style={{
-              width: "72%", height: "72%", borderRadius: "50%",
-              background: `radial-gradient(circle at 32% 28%, #ff8a72, ${C.danger} 62%, #7d2415)`,
-              boxShadow: `0 0 12px ${C.danger}55`,
+              width: "70%", height: "70%", borderRadius: "50%",
+              background: "var(--snake-apple)",
+              boxShadow: "0 0 10px rgba(255,90,60,.45)",
             }} />
           </div>
         )}
@@ -223,23 +223,31 @@ export default function Snake() {
           const key = g.snake.length - 1 - i;
           const shade = i / Math.max(12, g.snake.length);
           return (
+            /* No percentage padding here. On an absolutely positioned element a
+               percentage padding resolves against the *containing block's*
+               width — the whole board — not the element's own. At 6% that came
+               to 26px of padding on a 28px cell, which collapsed the inner box
+               to nothing: the background had no area left to paint and only the
+               eyes showed, because their SVG overflows a zero-sized box.
+               Centring with grid and sizing the inner box as a percentage of
+               the cell avoids the trap entirely. */
             <div key={key} className={g.status === "dead" ? "snake-die" : ""}
               style={{
                 position: "absolute", width: `${100 / SIZE}%`, height: `${100 / SIZE}%`,
                 transform: `translate(${seg.x * 100}%, ${seg.y * 100}%)`,
                 transition: g.status === "running" ? `transform ${speed.ms}ms linear` : "none",
-                padding: "6%", pointerEvents: "none",
+                display: "grid", placeItems: "center", pointerEvents: "none",
                 animationDelay: g.status === "dead" ? `${Math.min(i, 14) * 28}ms` : "0s",
                 zIndex: head ? 3 : 2,
               }}>
               <div style={{
-                width: "100%", height: "100%",
-                borderRadius: head ? "38%" : `${28 - shade * 10}%`,
-                background: head
-                  ? `linear-gradient(150deg, #8fe0a0, ${C.correct} 60%, #2f7a46)`
-                  : `linear-gradient(150deg, #79cf8c, ${C.correct})`,
-                opacity: head ? 1 : 1 - Math.min(shade, .45),
-                boxShadow: head ? `${GLOSS}, 0 2px 6px rgba(0,0,0,.28)` : GLOSS,
+                width: head ? "94%" : "86%", height: head ? "94%" : "86%",
+                borderRadius: head ? "34%" : `${30 - shade * 10}%`,
+                background: head ? "var(--snake-head)" : "var(--snake-body)",
+                opacity: head ? 1 : 1 - Math.min(shade, .35),
+                boxShadow: head
+                  ? `${GLOSS}, 0 0 0 1.5px var(--snake-edge), 0 2px 6px rgba(0,0,0,.32)`
+                  : `${GLOSS}, 0 0 0 1px var(--snake-edge)`,
                 display: "grid", placeItems: "center",
                 transform: head ? `rotate(${headDir}deg)` : "none",
                 transition: `transform ${speed.ms}ms ${EASE}`,
@@ -247,11 +255,11 @@ export default function Snake() {
                 {head && (
                   /* Eyes sit on the leading edge and rotate with the head, so
                      the snake always looks where it is going. */
-                  <svg viewBox="0 0 10 10" style={{ width: "100%", height: "100%", overflow: "visible" }} aria-hidden>
-                    <circle cx="7" cy="3.1" r="1.25" fill="#fff" />
-                    <circle cx="7" cy="6.9" r="1.25" fill="#fff" />
-                    <circle cx="7.6" cy="3.1" r=".6" fill="#173a22" />
-                    <circle cx="7.6" cy="6.9" r=".6" fill="#173a22" />
+                  <svg viewBox="0 0 10 10" style={{ width: "100%", height: "100%" }} aria-hidden>
+                    <circle cx="6.9" cy="3.2" r="1.5" fill="#fff" />
+                    <circle cx="6.9" cy="6.8" r="1.5" fill="#fff" />
+                    <circle cx="7.6" cy="3.2" r=".72" fill="#12301c" />
+                    <circle cx="7.6" cy="6.8" r=".72" fill="#12301c" />
                   </svg>
                 )}
               </div>
@@ -371,6 +379,33 @@ function Dpad({ onTurn }) {
 function Anim() {
   return (
     <style>{`
+      /* The snake carries its own colours rather than borrowing C.correct.
+         On the dark board the palette's green sits too close to the
+         background to read as a distinct object, and the snake is the one
+         thing on screen the player must never lose track of, so the dark
+         theme gets a deliberately brighter set. The 1px edge keeps the body
+         legible where it crosses its own tail. */
+      :root {
+        --snake-head: linear-gradient(150deg, #4fb572, #22834a 55%, #145c33);
+        --snake-body: linear-gradient(150deg, #43a463, #277a44);
+        --snake-edge: rgba(16,52,30,.45);
+        --snake-apple: radial-gradient(circle at 32% 28%, #ff8a72, #d4432c 62%, #7d2415);
+      }
+      :root[data-theme="dark"] {
+        --snake-head: linear-gradient(150deg, #c7ffd8, #5fe08c 55%, #2fae63);
+        --snake-body: linear-gradient(150deg, #9cf0b6, #4ecb7c);
+        --snake-edge: rgba(0,0,0,.5);
+        --snake-apple: radial-gradient(circle at 32% 28%, #ffb5a2, #ff5f43 60%, #b0301a);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+          --snake-head: linear-gradient(150deg, #c7ffd8, #5fe08c 55%, #2fae63);
+          --snake-body: linear-gradient(150deg, #9cf0b6, #4ecb7c);
+          --snake-edge: rgba(0,0,0,.5);
+          --snake-apple: radial-gradient(circle at 32% 28%, #ffb5a2, #ff5f43 60%, #b0301a);
+        }
+      }
+
       @keyframes snakeShake {
         0%,100% { transform: translate(0,0) }
         15% { transform: translate(-6px, 3px) }

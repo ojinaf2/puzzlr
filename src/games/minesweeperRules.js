@@ -37,8 +37,16 @@ export const neighbours = (level, i) => {
   return out;
 };
 
-export const newGame = (levelKey) => {
-  const level = levelOf(levelKey);
+/* Hard is 16 rows by 30 columns, which cannot fit across a phone. Turning it
+   on its side gives 30 by 16 — the same board, the same mine count, the same
+   game — and it fits a portrait screen without scrolling. Minesweeper has no
+   preferred orientation, so nothing is lost by it. */
+export const transpose = (level) => ({ ...level, rows: level.cols, cols: level.rows });
+
+/* Accepts a level key or an already-shaped level object, so a caller can hand
+   in a transposed one. */
+export const newGame = (levelOrKey) => {
+  const level = typeof levelOrKey === "string" ? levelOf(levelOrKey) : levelOrKey;
   const size = level.rows * level.cols;
   return {
     level,

@@ -3,7 +3,7 @@ import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, paleGrad, EASE } from '../shared/th
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import {
   LEVELS, COVERED, REVEALED, FLAGGED, newGame, revealAt, toggleFlag, chord,
-  minesLeft, bestKey, formatTime,
+  minesLeft, bestKey, formatTime, levelOf, transpose,
 } from './minesweeperRules.js';
 
 /* ============================= MINESWEEPER =============================
@@ -38,6 +38,18 @@ const readBest = (key) => {
 };
 const writeBest = (key, seconds) => {
   try { localStorage.setItem(bestKey(key), String(seconds)); } catch { /* private mode */ }
+};
+
+/* A board wider than it is tall does not fit across a phone. Below this the
+   wide levels are laid out on their side instead. Read once per board rather
+   than watched, so rotating the device mid-game cannot rebuild the board and
+   throw away a run in progress. */
+const NARROW = 560;
+const isNarrow = () => typeof window !== "undefined" && window.innerWidth < NARROW;
+
+const shapeFor = (key) => {
+  const level = levelOf(key);
+  return isNarrow() && level.cols > level.rows ? transpose(level) : level;
 };
 
 export default function Minesweeper() {
@@ -87,14 +99,14 @@ export default function Minesweeper() {
   const start = (key) => {
     setLevelKey(key);
     setBest(readBest(key));
-    setG(newGame(key));
+    setG(newGame(shapeFor(key)));
     setSeconds(0);
     startedAt.current = 0;
     setScreen("play");
   };
 
   const restart = useCallback(() => {
-    setG(newGame(levelKey));
+    setG(newGame(shapeFor(levelKey)));
     setSeconds(0);
     startedAt.current = 0;
   }, [levelKey]);
@@ -172,7 +184,12 @@ export default function Minesweeper() {
 
   /* -------------------------------- playing -------------------------------- */
   const { level } = g;
-  const cell = `clamp(15px, calc((min(100vw, 700px) - 36px) / ${level.cols}), 34px)`;
+  /* The columns are fractions of the board rather than a width computed from
+     the viewport, so the board cannot overflow by construction. An earlier
+     version measured against 100vw and was always a scrollbar's width too
+     generous — 100vw counts the scrollbar, the space available to lay out in
+     does not. The cap keeps cells from ballooning on a wide screen. */
+  const maxBoard = level.cols * 34 + (level.cols - 1) * 2 + 16;
 
   return (
     <Centered>
@@ -192,13 +209,19 @@ export default function Minesweeper() {
 
       {/* Hard is 30 columns wide, so on a phone the board scrolls inside this
           container rather than stretching the page. */}
-      <div style={{ maxWidth: "100%", overflowX: "auto", padding: "2px 2px 6px", WebkitOverflowScrolling: "touch" }}>
+      {/* `width: 100%` is load-bearing. This sits in a centred column flex
+          container, so without it the box is shrink-to-fit — and the grid's
+          own `min(100%, …)` would then be resolving a percentage against a
+          parent that is sizing itself from that same grid. The circle
+          collapses every column to zero. */}
+      <div style={{ width: "100%", maxWidth: "100%", overflowX: "auto", padding: "2px 2px 6px", WebkitOverflowScrolling: "touch" }}>
         <div
           onContextMenu={(e) => e.preventDefault()}
           onPointerLeave={cancelPress}
           style={{
-            display: "grid", gridTemplateColumns: `repeat(${level.cols}, ${cell})`,
-            gap: 2, padding: 8, borderRadius: 14, width: "max-content", margin: "0 auto",
+            display: "grid", gridTemplateColumns: `repeat(${level.cols}, minmax(0, 1fr))`,
+            gap: 2, padding: 8, borderRadius: 14,
+            width: `min(100%, ${maxBoard}px)`, margin: "0 auto",
             background: paleGrad(C.panel2), boxShadow: `${GLOSS_SOFT}, ${SHADOW.md}`,
             touchAction: "manipulation", userSelect: "none", WebkitUserSelect: "none",
             WebkitTouchCallout: "none",
@@ -208,8 +231,11 @@ export default function Minesweeper() {
             const isMine = g.mine[i] === 1;
             const boom = over && i === g.hitIndex;
             /* On a loss every mine comes up; a flag on a cell that held no
-               mine is marked wrong, which is how you learn what went astray. */
-            const showMine = g.status === "lost" && isMine && st !== FLAGGED;
+               mine is marked wrong, which is how you learn what went astray.
+               The cell that was actually hit is excluded — it draws its own
+               emphasised mine below, and without this it matched both and
+               rendered two mines stacked on top of each other. */
+            const showMine = g.status === "lost" && isMine && st !== FLAGGED && !boom;
             const wrongFlag = g.status === "lost" && st === FLAGGED && !isMine;
             const n = g.adj[i];
 
