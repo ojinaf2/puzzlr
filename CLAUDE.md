@@ -96,14 +96,16 @@ hangman. Its dictionaries are devDependencies, so nothing new ships.
 
 ## Conventions
 
-- **No runtime dependencies.** React, plus `@vercel/analytics`, and nothing
-  else. Keep it that way unless there is a strong reason. Build-time
-  devDependencies are fine — the word-bank generator uses several, and only its
-  committed output reaches the browser.
-  - Analytics is mounted once in `src/App.jsx` and imported from
-    `@vercel/analytics/react`. Vercel's dashboard defaults its snippet to
-    Next.js; the `/next` import does not build here. Do not remove it as
-    "an unused dependency" — it is deliberate, and it is cookieless.
+- **No runtime dependencies.** React, plus Vercel's two measurement packages,
+  and nothing else. Keep it that way unless there is a strong reason.
+  Build-time devDependencies are fine — the word-bank generator uses several,
+  and only its committed output reaches the browser.
+  - `@vercel/analytics` and `@vercel/speed-insights` are both mounted once in
+    `src/App.jsx`, and both imported from their `/react` entry point. Vercel's
+    dashboard defaults its snippets to Next.js; the `/next` imports do not
+    build here. Neither package is referenced anywhere else, so both look
+    unused to a quick grep — do not strip them. They are deliberate, they are
+    cookieless, and they send nothing in development.
 - **Inline styles**, using the `C` palette from `shared/theme.js`. There is no
   CSS framework and `src/index.css` is deliberately almost empty.
 - **Depth comes from `shared/theme.js`, not from ad-hoc shadows.** Use
