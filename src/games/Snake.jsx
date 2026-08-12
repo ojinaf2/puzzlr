@@ -11,18 +11,20 @@ import { SIZE, MAX_SCORE, SPEEDS, DIRS, freshGame, step } from './snakeRules.js'
    is absolutely positioned and animated with a CSS transform transition that
    lasts exactly one tick, so it slides.
 
-   Getting that right depends entirely on the React key. Segments are keyed by
-   their distance from the *tail*, not from the head. Walk through a move and
-   the reason becomes clear: a new head is added and the tail is dropped, so
-   the segment that was second-from-tail is now third-from-tail, and every key
-   ends up one cell further along the body — which is exactly the motion a
-   snake makes. Key from the head instead and every segment would keep its own
-   key while the whole body shifted underneath, so nothing would appear to move
-   at all except the tail vanishing.
+   It all rests on the React key, and the key is the segment's distance from
+   the *head*. Walk a move through: the array shifts down by one, so the
+   element keyed 2 was drawing snake[2] and now draws snake[2] one cell
+   further along the body. Every key advances exactly one cell, which is the
+   motion a snake makes.
 
-   It also handles growth correctly for free. When an apple is eaten nothing is
-   dropped, so every existing key stays exactly where it is (right — the tail
-   does not advance on the tick you eat) and one new key appears at the head.
+   Keying from the tail also glides, and was what this did first, but it
+   breaks the moment an apple is eaten. Growth adds an entry at the head, so
+   every distance-from-tail shifts and the brand-new key lands on the head —
+   a segment materialising out of nothing in the busiest spot on the board.
+   Measured from the head the new key falls at the *tail* instead, on the cell
+   the last segment is in the middle of gliding off, so it is covered the
+   whole time and the snake simply fails to shorten. Which is precisely what
+   eating an apple is.
 
    The rules themselves live in ./snakeRules.js so they can be tested without a
    browser — see test/snake.test.mjs.                                         */
@@ -46,20 +48,28 @@ export default function Snake() {
   const [screen, setScreen] = useState("menu");
   const [g, setG] = useState(freshGame);
   const [best, setBest] = useState(() => readBest("easy"));
+  const [beat, setBeat] = useState(0);      // bumped to restart the clock after an early move
   const boardRef = useRef(null);
   const touch = useRef(null);
+  const tickAt = useRef(0);                 // when the last move landed
 
   const speed = SPEEDS.find((s) => s.key === difficulty) ?? SPEEDS[0];
   const over = g.status === "dead" || g.status === "won";
 
   /* The clock. Keyed on status and speed so it is torn down the instant the
      game ends — an interval left running behind a results screen is the
-     classic way these end up eating battery in a background tab. */
+     classic way these end up eating battery in a background tab. `beat` is
+     bumped when a turn moves early, which restarts the interval so the rhythm
+     stays even instead of the next move landing on the old schedule. */
   useEffect(() => {
     if (g.status !== "running") return;
-    const id = setInterval(() => setG(step), speed.ms);
+    tickAt.current = performance.now();
+    const id = setInterval(() => {
+      tickAt.current = performance.now();
+      setG(step);
+    }, speed.ms);
     return () => clearInterval(id);
-  }, [g.status, speed.ms]);
+  }, [g.status, speed.ms, beat]);
 
   useEffect(() => { setBest(readBest(difficulty)); }, [difficulty]);
 
@@ -76,20 +86,39 @@ export default function Snake() {
   const turn = useCallback((name) => {
     const dir = DIRS[name];
     if (!dir) return;
-    setG((prev) => {
-      /* The opening move sets the direction outright rather than queueing it.
-         Queueing sent it through the no-reversing rule, which is measured
-         against the default heading of right — so pressing left to start was
-         discarded as a 180 and the snake set off rightwards on its own. A
-         one-segment snake has no neck to reverse into, so every direction is
-         legal here. */
-      if (prev.status === "ready") return { ...prev, status: "running", dir, queue: [] };
-      if (prev.status !== "running") return prev;
-      // Two buffered turns is plenty; more just makes the snake feel remote.
-      if (prev.queue.length >= 2) return prev;
-      return { ...prev, queue: [...prev.queue, dir] };
-    });
-  }, []);
+
+    /* The opening move sets the direction outright rather than queueing it.
+       Queueing sent it through the no-reversing rule, which is measured
+       against the default heading of right — so pressing left to start was
+       discarded as a 180 and the snake set off rightwards on its own. A
+       one-segment snake has no neck to reverse into, so every direction is
+       legal here. */
+    if (g.status === "ready") {
+      tickAt.current = performance.now();
+      setG((prev) => (prev.status === "ready" ? { ...prev, status: "running", dir, queue: [] } : prev));
+      return;
+    }
+    if (g.status !== "running") return;
+
+    // Two buffered turns is plenty; more just makes the snake feel remote.
+    setG((prev) => (prev.queue.length >= 2 ? prev : { ...prev, queue: [...prev.queue, dir] }));
+
+    /* Waiting for the next tick to act on a turn costs up to a full interval,
+       which at these slower speeds is long enough to feel like lag. So once
+       the current tick is half spent, take the move immediately.
+
+       Both guards matter. Only a real change of heading qualifies, so holding
+       or hammering the key you are already travelling in cannot ratchet the
+       snake along faster than its difficulty allows; and half a tick is the
+       floor on how close together two moves can land. */
+    const turning = dir.x !== g.dir.x || dir.y !== g.dir.y;
+    const reversing = dir.x === -g.dir.x && dir.y === -g.dir.y;
+    if (turning && !reversing && performance.now() - tickAt.current > speed.ms * 0.5) {
+      tickAt.current = performance.now();
+      setG(step);
+      setBeat((b) => b + 1);
+    }
+  }, [g.status, g.dir, speed.ms]);
 
   const start = (key) => {
     setDifficulty(key);
@@ -104,6 +133,10 @@ export default function Snake() {
     if (screen !== "play") return;
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      /* A held key auto-repeats about thirty times a second. Those are not
+         separate decisions by the player, and letting them through would let a
+         held arrow drive the early-move path over and over. */
+      if (e.repeat) return;
       const name = KEY_MAP[e.key.toLowerCase()];
       if (name) {
         e.preventDefault();               // stop the arrow keys scrolling the page
@@ -224,9 +257,10 @@ export default function Snake() {
 
         {g.snake.map((seg, i) => {
           const head = i === 0;
-          /* Distance from the tail. See the note at the top of the file — this
-             is what turns a redraw into a glide. */
-          const key = g.snake.length - 1 - i;
+          /* Distance from the head. See the note at the top of the file — this
+             is what turns a redraw into a glide, and what keeps a new segment
+             from popping into existence when an apple is eaten. */
+          const key = i;
           const shade = i / Math.max(12, g.snake.length);
           return (
             /* No percentage padding here. On an absolutely positioned element a
