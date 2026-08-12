@@ -25,7 +25,8 @@ export function ModeTabs({ mode, setMode, dailyDone }) {
   return (
     <div style={{ display: "flex", gap: 4, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: 4, marginBottom: 14 }}>
       {tab("daily", "Daily")}
-      {tab("practice", "Practice")}
+      {/* The mode is still called "practice" in code; only the label changed. */}
+      {tab("practice", "Unlimited")}
     </div>
   );
 }

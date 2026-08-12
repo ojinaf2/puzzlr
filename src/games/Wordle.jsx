@@ -53,7 +53,9 @@ function LocalWordle({ navigate }) {
     const rows = (record.board || []).map((g) =>
       scoreGuess(g, answer).map((s) => EMOJI[s]).join(""));
     const score = record.done?.won ? `${rows.length}/${W_ROWS}` : `X/${W_ROWS}`;
-    return `Puzzlr Wordle #${day} ${score}\n\n${rows.join("\n")}\n\nplaypuzzlr.com`;
+    /* No "Puzzlr" prefix on this one — the name is long enough already, and
+       the last line carries the brand. */
+    return `Wordl Unlimited #${day} ${score}\n\n${rows.join("\n")}\n\nplaypuzzlr.com`;
   };
 
   return (
@@ -75,7 +77,8 @@ function LocalWordle({ navigate }) {
       />
 
       {finished && (
-        <DailyPanel record={record} day={day} title="Wordle" buildShare={buildShare}
+        /* `title` lands in "Next …", so it wants a noun, not the game's name. */
+        <DailyPanel record={record} day={day} title="puzzle" buildShare={buildShare}
           buckets={["1", "2", "3", "4", "5", "6"]} caption="Guess distribution" />
       )}
 
@@ -342,7 +345,7 @@ function OnlineWordle({ roomCode, navigate }) {
   if (room.status === 'lobby') {
     return (
       <Centered>
-        <h2 style={hStyle}>Wordle race</h2>
+        <h2 style={hStyle}>Word race</h2>
         <p style={pStyle}>Same word, both of you at once. First to solve it wins the round.</p>
         <InviteLink gameId="wordle" roomCode={roomCode} />
 

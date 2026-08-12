@@ -43,8 +43,12 @@ import Minesweeper from './Minesweeper.jsx';
 */
 export const GAMES = [
   {
-    id: "wordle", name: "Wordle", tag: "Word guessing",
-    blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — the same word everyone else gets — or practise as long as you like. No sign-up.", accent: "#3aa76d",
+    /* The id stays "wordle" although the display name no longer is. It is the
+       route, the key the browser sends the room server, and the localStorage
+       key holding everyone's daily streak — changing it would need a Worker
+       deploy, break live invite links and reset every streak. */
+    id: "wordle", name: "Wordl Unlimited", tag: "Word guessing",
+    blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — the same word everyone else gets — then keep going with unlimited words. No sign-up.", accent: "#3aa76d",
     players: "1 player", daily: true, Comp: Wordle,
     icon: (
       <g>

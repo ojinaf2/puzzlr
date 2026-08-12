@@ -58,6 +58,18 @@ Online as well: add an entry to `server/src/games.js` (`create`, `start`,
 `move`, plus optional `config`, `deadline`, `timeUp`, `forfeit`, `view`), then
 have the component branch on the `roomCode` prop it is handed.
 
+## Wordle is called "Wordl Unlimited" on screen
+
+The registry `id` is still `wordle`, and deliberately so. That id is three
+things at once: the route, the key the browser sends the room server
+(`GAMES[gameId]` in `server/src/index.js`), and the localStorage key holding
+every player's daily streak. Renaming it would need a matching Worker deploy,
+would break invite links already shared, and would reset every streak.
+
+So the mismatch between `id: "wordle"` and `name: "Wordl Unlimited"` is
+intentional — do not "tidy" it. The component, its file and the internal
+comments keep the old name too; only what a player can see was renamed.
+
 ## Daily puzzles
 
 Wordle and Hangman each have one puzzle a day, the same for everyone, with no
