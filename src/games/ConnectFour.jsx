@@ -159,12 +159,12 @@ function LocalConnectFour({ navigate }) {
   return (
     <Centered>
       <style>{c4Style}</style>
-      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10, alignItems: "center" }}>
         <span style={{ color: RED, fontWeight: 800 }}>Red &nbsp;{wins.R}</span>
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: "#b58900", fontWeight: 800 }}>Yellow &nbsp;{wins.Y}</span>
       </div>
-      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "0.9375rem", color: C.dim, height: 24, marginBottom: 10 }}>
         {winner
           ? <b style={{ color: winner.who === "R" ? RED : "#b58900" }}>{winner.who === "R" ? "Red" : "Yellow"} wins!</b>
           : full ? "Draw." : <>Turn: <b style={{ color: redNext ? RED : "#b58900" }}>{redNext ? "Red" : "Yellow"}</b></>}
@@ -205,13 +205,13 @@ function OnlineConnectFour({ roomCode, navigate }) {
       <style>{c4Style}</style>
       <RoomStatus status={status} error={error} />
 
-      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ color: RED, fontWeight: 800 }}>{seatOf(0)?.name ?? '—'} &nbsp;{g.wins[seatOf(0)?.id] ?? 0}</span>
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: "#b58900", fontWeight: 800 }}>{seatOf(1)?.name ?? '—'} &nbsp;{g.wins[seatOf(1)?.id] ?? 0}</span>
       </div>
 
-      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "0.9375rem", color: C.dim, height: 24, marginBottom: 10 }}>
         {over && g.forfeitedBy ? <b style={{ color: C.accent }}>{opponent?.name} left — you win</b>
           : over && g.winner ? <b style={{ color: g.winner === playerId ? C.correct : C.danger }}>{g.winner === playerId ? 'You win!' : `${opponent?.name ?? 'They'} win`}</b>
           : over && g.draw ? "Draw."
@@ -220,9 +220,9 @@ function OnlineConnectFour({ roomCode, navigate }) {
       </div>
 
       {opponent && !opponent.connected && !over && (
-        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: 13.5, textAlign: "center", maxWidth: 380 }}>
+        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: "0.84375rem", textAlign: "center", maxWidth: 380 }}>
           {opponent.name} lost connection. Their seat is held while they reconnect.
-          {stale && <div style={{ marginTop: 8 }}><Btn variant="ghost" style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn></div>}
+          {stale && <div style={{ marginTop: 8 }}><Btn variant="ghost" style={{ padding: "7px 16px", fontSize: "0.8125rem" }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn></div>}
         </div>
       )}
 

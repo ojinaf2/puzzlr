@@ -70,6 +70,36 @@ So the mismatch between `id: "wordle"` and `name: "Wordl Unlimited"` is
 intentional — do not "tidy" it. The component, its file and the internal
 comments keep the old name too; only what a player can see was renamed.
 
+## The site editor
+
+`npm run dev`, then <http://localhost:5173/admin>. It edits the site's text,
+both colour palettes, the two font faces and the overall text size, and
+**saving rewrites the real source files** — `src/content.js` and
+`src/shared/theme.js`. An edit is therefore a normal diff to review and commit,
+and it goes live on the next deploy like anything else.
+
+It is deliberately dev-only, and that is what keeps it free:
+
+- The route is behind `import.meta.env.DEV`, which folds to a literal `false`
+  in a production build, so Rollup drops the editor entirely. If you touch
+  this, re-check with `grep -l "Site editor" dist/assets/*.js` after a build.
+- The write endpoint is a Vite plugin declaring `apply: 'serve'`, so it exists
+  only while the dev server runs. The live site has nothing to authenticate
+  and nothing to attack — no login, no database, no runtime fetch.
+
+Two things follow from this that are easy to undo by accident:
+
+- **`src/content.js` must stay plain data.** The writer regenerates the whole
+  file from an object, so an import, a computed value or a template literal
+  added by hand will not survive the next save.
+- **Font sizes are in `rem`, not `px`.** That is the only reason the text-size
+  dial works — a px size would ignore it. A new `fontSize: 14` is a bug; write
+  `fontSize: "0.875rem"`.
+
+Layout is not editable, and deliberately so. Placement lives in ~400 inline
+style objects as flexbox and grid decisions bound to component structure;
+exposing that properly means a visual page-builder, which this is not.
+
 ## Daily puzzles
 
 Wordle and Hangman each have one puzzle a day, the same for everyone, with no

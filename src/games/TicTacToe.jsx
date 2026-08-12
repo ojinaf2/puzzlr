@@ -20,7 +20,7 @@ function Board({ board, winLine, winnerMark, onPlay, disabled }) {
         const canPlay = !v && !disabled;
         return (
           <button key={i} onClick={() => canPlay && onPlay(i)}
-            style={{ background: hl ? (winnerMark === "X" ? "#e6ddc0" : "#f0d3c4") : C.panel, border: `2px solid ${hl ? (winnerMark === "X" ? C.accent : C.danger) : "transparent"}`, borderRadius: 16, fontSize: 46, fontWeight: 800, color: v === "X" ? C.accent : C.danger, cursor: canPlay ? "pointer" : "default", display: "grid", placeItems: "center", boxShadow: hl ? "0 6px 18px rgba(74,53,36,.22)" : "0 3px 9px rgba(74,53,36,.12)", transition: "transform .1s, box-shadow .15s" }}
+            style={{ background: hl ? (winnerMark === "X" ? "#e6ddc0" : "#f0d3c4") : C.panel, border: `2px solid ${hl ? (winnerMark === "X" ? C.accent : C.danger) : "transparent"}`, borderRadius: 16, fontSize: "2.875rem", fontWeight: 800, color: v === "X" ? C.accent : C.danger, cursor: canPlay ? "pointer" : "default", display: "grid", placeItems: "center", boxShadow: hl ? "0 6px 18px rgba(74,53,36,.22)" : "0 3px 9px rgba(74,53,36,.12)", transition: "transform .1s, box-shadow .15s" }}
             onMouseEnter={(e) => { if (canPlay) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 18px rgba(74,53,36,.2)"; } }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = hl ? "0 6px 18px rgba(74,53,36,.22)" : "0 3px 9px rgba(74,53,36,.12)"; }}>
             {v}
@@ -52,12 +52,12 @@ function LocalTicTacToe({ navigate }) {
 
   return (
     <Centered>
-      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10 }}>
         <span style={{ color: C.accent, fontWeight: 800 }}>X &nbsp;{wins.X}</span>
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: C.danger, fontWeight: 800 }}>O &nbsp;{wins.O}</span>
       </div>
-      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "0.9375rem", color: C.dim, height: 24, marginBottom: 10 }}>
         {winner ? <b style={{ color: winner.who === "X" ? C.accent : C.danger }}>{winner.who} wins!</b> : full ? "Draw." : <>Turn: <b style={{ color: xNext ? C.accent : C.danger }}>{xNext ? "X" : "O"}</b></>}
       </div>
       <Board board={board} winLine={winner?.line} winnerMark={winner?.who} onPlay={play} disabled={!!winner} />
@@ -96,7 +96,7 @@ function OnlineTicTacToe({ roomCode, navigate }) {
     <Centered>
       <RoomStatus status={status} error={error} />
 
-      <div style={{ display: "flex", gap: 20, fontSize: 14, marginBottom: 10, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ color: C.accent, fontWeight: 800 }}>
           {me.seat === 0 ? me.name : opponent?.name ?? '—'} (X) &nbsp;{g.wins[room.players.find((p) => p.seat === 0)?.id] ?? 0}
         </span>
@@ -106,7 +106,7 @@ function OnlineTicTacToe({ roomCode, navigate }) {
         </span>
       </div>
 
-      <div style={{ fontSize: 15, color: C.dim, height: 24, marginBottom: 10 }}>
+      <div style={{ fontSize: "0.9375rem", color: C.dim, height: 24, marginBottom: 10 }}>
         {over && g.forfeitedBy ? <b style={{ color: C.accent }}>{opponent?.name} left — you win</b>
           : over && g.winner ? <b style={{ color: g.winner === playerId ? C.correct : C.danger }}>{g.winner === playerId ? 'You win!' : `${opponent?.name ?? 'They'} win${g.winner === playerId ? '' : 's'}!`}</b>
           : over && g.draw ? "Draw."
@@ -115,9 +115,9 @@ function OnlineTicTacToe({ roomCode, navigate }) {
       </div>
 
       {opponent && !opponent.connected && !over && (
-        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: 13.5, color: C.text, textAlign: "center", maxWidth: 380 }}>
+        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: "0.84375rem", color: C.text, textAlign: "center", maxWidth: 380 }}>
           {opponent.name} lost connection. Their seat is held while they reconnect.
-          {stale && <div style={{ marginTop: 8 }}><Btn variant="ghost" style={{ padding: "7px 16px", fontSize: 13 }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn></div>}
+          {stale && <div style={{ marginTop: 8 }}><Btn variant="ghost" style={{ padding: "7px 16px", fontSize: "0.8125rem" }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn></div>}
         </div>
       )}
 

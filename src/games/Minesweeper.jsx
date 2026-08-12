@@ -162,11 +162,11 @@ export default function Minesweeper() {
               <TileBtn key={l.key} onClick={() => start(l.key)}
                 style={{ padding: "14px 16px", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ flex: 1 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, display: "block" }}>{l.name}</span>
-                  <span style={{ fontSize: 13, color: C.dim }}>{l.blurb}</span>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, display: "block" }}>{l.name}</span>
+                  <span style={{ fontSize: "0.8125rem", color: C.dim }}>{l.blurb}</span>
                 </span>
                 {record !== null && (
-                  <span style={{ fontSize: 12, color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "0.75rem", color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
                     Best {formatTime(record)}
                   </span>
                 )}
@@ -174,7 +174,7 @@ export default function Minesweeper() {
             );
           })}
         </div>
-        <p style={{ ...pStyle, fontSize: 12.5 }}>
+        <p style={{ ...pStyle, fontSize: "0.78125rem" }}>
           Right-click, or press and hold on a phone, to plant a flag. Tapping a
           number that already has all its flags opens the squares around it.
         </p>
@@ -274,7 +274,7 @@ export default function Minesweeper() {
         </div>
       </div>
 
-      <div style={{ minHeight: 26, marginTop: 12, fontSize: 15.5, fontWeight: 800 }}>
+      <div style={{ minHeight: 26, marginTop: 12, fontSize: "0.96875rem", fontWeight: 800 }}>
         {g.status === "won" && (
           <span style={{ color: C.correct }}>
             Cleared in {formatTime(seconds)}{best === seconds ? " — a new best!" : ""}
@@ -297,8 +297,8 @@ function Counter({ icon, value, label, sub }) {
     <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 92 }} title={label}>
       <span style={{ color: C.dim, display: "grid", placeItems: "center" }}>{icon}</span>
       <span>
-        <span style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", display: "block", lineHeight: 1.1 }}>{value}</span>
-        {sub && <span style={{ fontSize: 10.5, color: C.dim }}>{sub}</span>}
+        <span style={{ fontSize: "1.1875rem", fontWeight: 800, fontVariantNumeric: "tabular-nums", display: "block", lineHeight: 1.1 }}>{value}</span>
+        {sub && <span style={{ fontSize: "0.65625rem", color: C.dim }}>{sub}</span>}
       </span>
     </div>
   );

@@ -15,7 +15,7 @@ export function ModeTabs({ mode, setMode, dailyDone }) {
       <button key={key} onClick={() => setMode(key)}
         style={{
           background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
-          border: "none", borderRadius: 7, padding: "7px 18px", fontSize: 13.5,
+          border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
           fontWeight: 700, fontFamily: "inherit", cursor: "pointer", transition: "background .15s, color .15s",
         }}>
         {label}{key === "daily" && dailyDone && !on ? " ✓" : ""}
@@ -51,19 +51,19 @@ export function DailyPanel({ record, day, title, buildShare, buckets, caption })
       <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 16 }}>
         {[["Played", record.played], ["Win %", winPct], ["Streak", record.streak], ["Best", record.best]].map(([label, value]) => (
           <div key={label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 800 }}>{value}</div>
-            <div style={{ fontSize: 11, color: C.dim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: 800 }}>{value}</div>
+            <div style={{ fontSize: "0.6875rem", color: C.dim, textTransform: "uppercase", letterSpacing: .4 }}>{label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ fontSize: 11, color: C.dim, textTransform: "uppercase", letterSpacing: .4, marginBottom: 6 }}>{caption}</div>
+      <div style={{ fontSize: "0.6875rem", color: C.dim, textTransform: "uppercase", letterSpacing: .4, marginBottom: 6 }}>{caption}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 16 }}>
         {buckets.map((b) => {
           const n = record.dist[b] || 0;
           const isToday = record.done?.won && String(record.done.bucket) === String(b);
           return (
-            <div key={b} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5 }}>
+            <div key={b} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.78125rem" }}>
               <span style={{ width: 12, color: C.dim }}>{b}</span>
               <div style={{
                 background: isToday ? C.correct : C.absent, color: "#fff", fontWeight: 700,
@@ -77,8 +77,8 @@ export function DailyPanel({ record, day, title, buildShare, buckets, caption })
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
         <div>
-          <div style={{ fontSize: 11, color: C.dim, textTransform: "uppercase", letterSpacing: .4 }}>Next {title}</div>
-          <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{countdown}</div>
+          <div style={{ fontSize: "0.6875rem", color: C.dim, textTransform: "uppercase", letterSpacing: .4 }}>Next {title}</div>
+          <div style={{ fontSize: "1.1875rem", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{countdown}</div>
         </div>
         <Btn onClick={share}>{copied === "copied" ? "Copied!" : copied === "failed" ? "Copy failed" : "Share"}</Btn>
       </div>

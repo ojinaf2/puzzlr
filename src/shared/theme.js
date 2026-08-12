@@ -113,6 +113,30 @@ const depthFor = (name) => {
 export const EASE = "cubic-bezier(.32,.72,0,1)";
 export const SPRING = "cubic-bezier(.34,1.56,.64,1)";
 
+/* ------------------------------------------------------------------ type
+   Written by the editor at /admin. Two faces and one scale.
+
+   The scale works because every font size in the app is expressed in `rem`,
+   which is relative to the root — so multiplying the root size moves all of
+   them together. That is the whole reason the sizes were converted from px;
+   a px size would sit there ignoring the dial. */
+export const TYPE = {
+  head: "'Times New Roman', Times, serif",
+  body: "'Libre Franklin', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+  scale: 1,
+};
+
+export const typeCss = (type = TYPE) => `
+:root {
+  --font-head: ${type.head};
+  --font-body: ${type.body};
+  --type-scale: ${type.scale};
+}
+/* A percentage rather than a fixed 16px, so a visitor who has enlarged text
+   in their own browser settings keeps that and this multiplies on top. */
+html { font-size: calc(100% * var(--type-scale)); }
+`;
+
 /* The palette every game reads. Values are variable references, not colours. */
 export const C = Object.fromEntries(KEYS.map((k) => [k, `var(--c-${k})`]));
 

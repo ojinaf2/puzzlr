@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react';
-import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, tint, shade, EASE, themeCss, useTheme, toggleTheme, THEMES } from './shared/theme.js';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, tint, shade, EASE, themeCss, typeCss, useTheme, toggleTheme, THEMES } from './shared/theme.js';
 import { Btn } from './shared/ui.jsx';
 import { useRoute, buildPath } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
+import { CONTENT, fill } from './content.js';
 
 /* ============================= HUB SHELL =============================
    Header, landing page, routing and footer. Contains no game logic — every
    game lives in src/games/ and is registered in src/games/index.jsx. */
 const HUB_NAME = "Puzzlr";
+
+/* Loaded lazily and only in development. In a production build the condition
+   folds to a literal false, so the dynamic import is unreachable and Rollup
+   drops the editor and everything it imports out of the bundle entirely. */
+const AdminPanel = import.meta.env.DEV
+  ? lazy(() => import('./admin/AdminPanel.jsx'))
+  : null;
 
 // Landing copy counts the games itself, so adding one to the registry keeps it honest.
 const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
@@ -78,17 +86,17 @@ function GameCard({ game, onClick }) {
         <svg viewBox="0 0 52 52" width="42" height="42">{game.icon}</svg>
       </div>
       <div>
-        <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 3, letterSpacing: "-.01em" }}>{game.name}</div>
-        <div style={{ fontSize: 13.5, color: C.dim }}>{game.tag}</div>
+        <div style={{ fontSize: "1.1875rem", fontWeight: 800, marginBottom: 3, letterSpacing: "-.01em" }}>{game.name}</div>
+        <div style={{ fontSize: "0.84375rem", color: C.dim }}>{game.tag}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2, gap: 8 }}>
         <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, boxShadow: GLOSS_SOFT }}>{game.players}</span>
+          <span style={{ fontSize: "0.75rem", color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, boxShadow: GLOSS_SOFT }}>{game.players}</span>
           {game.daily && (
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: grad(game.accent), padding: "3px 10px", borderRadius: 20, boxShadow: `${GLOSS}, ${SHADOW.sm}` }}>Daily</span>
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fff", background: grad(game.accent), padding: "3px 10px", borderRadius: 20, boxShadow: `${GLOSS}, ${SHADOW.sm}` }}>Daily</span>
           )}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: game.accent, whiteSpace: "nowrap", transition: `transform .28s ${EASE}`, transform: hover ? "translateX(3px)" : "none" }}>Play →</span>
+        <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: game.accent, whiteSpace: "nowrap", transition: `transform .28s ${EASE}`, transform: hover ? "translateX(3px)" : "none" }}>{CONTENT.hub.cardCta}</span>
       </div>
     </a>
   );
@@ -102,12 +110,12 @@ function Landing({ onPick }) {
           a click meant for a card. */}
       <div aria-hidden style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: "min(620px, 96%)", height: 340, pointerEvents: "none", background: GLOW, opacity: .75, zIndex: 0 }} />
       <section style={{ textAlign: "center", padding: "48px 0 40px", position: "relative", zIndex: 1 }}>
-        <div style={{ fontSize: 13, letterSpacing: "0.22em", textTransform: "uppercase", color: C.accent2, fontWeight: 700, marginBottom: 14 }}>A little arcade of quick games</div>
-        <h1 className="grad-text" style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: "clamp(38px, 7vw, 62px)", fontWeight: 700, lineHeight: 1.05, margin: "0 0 16px", letterSpacing: "-.01em", background: `linear-gradient(170deg, ${C.text} 30%, ${C.accent2})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
-          Play, guess,<br />and outsmart a friend.
+        <div style={{ fontSize: "0.8125rem", letterSpacing: "0.22em", textTransform: "uppercase", color: C.accent2, fontWeight: 700, marginBottom: 14 }}>{CONTENT.hub.eyebrow}</div>
+        <h1 className="grad-text" style={{ fontFamily: "var(--font-head)", fontSize: "clamp(2.375rem, 7vw, 3.875rem)", fontWeight: 700, lineHeight: 1.05, margin: "0 0 16px", letterSpacing: "-.01em", background: `linear-gradient(170deg, ${C.text} 30%, ${C.accent2})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+          {CONTENT.hub.headlineTop}<br />{CONTENT.hub.headlineBottom}
         </h1>
-        <p style={{ color: C.dim, fontSize: 16, maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-          {countWord(GAMES.length)} hand-built games in one place. No sign-up, no timer pressure. Just open one and go.
+        <p style={{ color: C.dim, fontSize: "1rem", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
+          {fill(CONTENT.hub.intro, { count: countWord(GAMES.length) })}
         </p>
       </section>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, paddingBottom: 60 }}>
@@ -162,18 +170,24 @@ export default function App() {
   const theme = useTheme();
   useDocumentMeta(game, theme);
 
+  /* `import.meta.env.DEV` is replaced with a literal at build time, so in a
+     production bundle this is `false && …` — the branch is dead code and the
+     editor is never pulled in. Verified by grepping the built bundle. */
+  const adminRoute = import.meta.env.DEV && gameId === "admin";
+
   // An unknown game in the URL falls back to the landing page rather than a blank screen.
   useEffect(() => {
-    if (gameId && !game) navigate(null, null, { replace: true });
-  }, [gameId, game, navigate]);
+    if (gameId && !game && !adminRoute) navigate(null, null, { replace: true });
+  }, [gameId, game, adminRoute, navigate]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [gameId, roomCode]);
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "'Libre Franklin', 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "var(--font-body)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;700;800&display=swap');
         ${themeCss()}
+        ${typeCss()}
         * { box-sizing: border-box; }
         /* Recolouring every surface at once looks broken if it happens
            instantly. Backgrounds and borders cross-fade; text does not, because
@@ -228,25 +242,29 @@ export default function App() {
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <a href="/" onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); navigate(null); }}
             style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 9, color: C.text, fontFamily: "inherit", padding: 0, textDecoration: "none", flexShrink: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: LOGO, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 17, color: "#fff", boxShadow: `${GLOSS}, ${SHADOW.sm}`, textShadow: "0 1px 1px rgba(74,53,36,.3)" }}>P</div>
-            <span className="hdr-word" style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 23, fontWeight: 700 }}>{HUB_NAME}</span>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: LOGO, display: "grid", placeItems: "center", fontWeight: 900, fontSize: "1.0625rem", color: "#fff", boxShadow: `${GLOSS}, ${SHADOW.sm}`, textShadow: "0 1px 1px rgba(74,53,36,.3)" }}>P</div>
+            <span className="hdr-word" style={{ fontFamily: "var(--font-head)", fontSize: "1.4375rem", fontWeight: 700 }}>{HUB_NAME}</span>
           </a>
           {game && <>
             <span className="hdr-word" style={{ color: C.line }}>/</span>
             {/* Truncates rather than pushing the controls off screen. */}
-            <span style={{ fontSize: 15, fontWeight: 700, color: game.accent, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.name}</span>
+            <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: game.accent, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.name}</span>
           </>}
-          {roomCode && <span style={{ fontSize: 12, fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em", flexShrink: 0 }}>{roomCode}</span>}
+          {roomCode && <span style={{ fontSize: "0.75rem", fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em", flexShrink: 0 }}>{roomCode}</span>}
           <div style={{ flex: 1, minWidth: 8 }} />
           {game && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
-            <span aria-hidden>←</span><span className="hdr-word"> All games</span>
+            <span aria-hidden>←</span><span className="hdr-word"> {CONTENT.hub.backToGames}</span>
           </Btn>}
           <ThemeToggle />
         </div>
       </header>
 
       <main style={{ padding: game ? "28px 20px 60px" : 0 }}>
-        {!game ? <Landing onPick={(id) => navigate(id)} /> : (
+        {adminRoute ? (
+          <Suspense fallback={null}>
+            <AdminPanel onClose={() => navigate(null)} />
+          </Suspense>
+        ) : !game ? <Landing onPick={(id) => navigate(id)} /> : (
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
             {/* roomCode and navigate are passed down for the online modes; the
                 local-only games simply ignore them. */}
@@ -255,8 +273,8 @@ export default function App() {
         )}
       </main>
 
-      <footer style={{ borderTop: `1px solid ${C.line}`, padding: "26px 20px", textAlign: "center", color: C.dim, fontSize: 13, background: `linear-gradient(180deg, transparent, ${C.panel})` }}>
-        {HUB_NAME} — a small collection of games. Built for fun.
+      <footer style={{ borderTop: `1px solid ${C.line}`, padding: "26px 20px", textAlign: "center", color: C.dim, fontSize: "0.8125rem", background: `linear-gradient(180deg, transparent, ${C.panel})` }}>
+        {fill(CONTENT.hub.footer, { name: HUB_NAME })}
       </footer>
     </div>
   );

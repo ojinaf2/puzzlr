@@ -16,16 +16,16 @@ export function Btn({ children, onClick, variant = "primary", style = {}, ...p }
   };
   const styles = {
     primary: {
-      background: grad(C.accent), color: "#fff", padding: "12px 26px", fontSize: 15,
+      background: grad(C.accent), color: "#fff", padding: "12px 26px", fontSize: "0.9375rem",
       boxShadow: `${GLOSS}, ${SHADOW.md}`, textShadow: "0 1px 1px rgba(74,53,36,.28)",
     },
     ghost: {
-      background: paleGrad(C.panel2), color: C.text, padding: "11px 22px", fontSize: 14,
+      background: paleGrad(C.panel2), color: C.text, padding: "11px 22px", fontSize: "0.875rem",
       boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
     },
     // Tertiary: deliberately flat. If everything is lifted, nothing reads as lifted.
     subtle: {
-      background: "transparent", color: C.dim, padding: "9px 16px", fontSize: 13,
+      background: "transparent", color: C.dim, padding: "9px 16px", fontSize: "0.8125rem",
       border: `1px solid ${C.line}`, borderRadius: 11,
     },
   };
@@ -60,5 +60,5 @@ export function TileBtn({ children, onClick, disabled, noPad, style = {} }) {
 
 /* ============================= small layout helpers ============================= */
 export function Centered({ children }) { return <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>{children}</div>; }
-export const hStyle = { fontFamily: "'Times New Roman', Times, serif", fontSize: 28, fontWeight: 700, margin: "0 0 8px" };
-export const pStyle = { color: C.dim, fontSize: 14.5, lineHeight: 1.6, maxWidth: 440, margin: "0 0 18px" };
+export const hStyle = { fontFamily: "var(--font-head)", fontSize: "1.75rem", fontWeight: 700, margin: "0 0 8px" };
+export const pStyle = { color: C.dim, fontSize: "0.90625rem", lineHeight: 1.6, maxWidth: 440, margin: "0 0 18px" };

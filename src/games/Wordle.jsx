@@ -62,7 +62,7 @@ function LocalWordle({ navigate }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
       <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done} />
       {daily && (
-        <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 10, textAlign: "center" }}>
+        <div style={{ fontSize: "0.78125rem", color: C.dim, marginBottom: 10, textAlign: "center" }}>
           Puzzle #{day} — the same word for everyone today
         </div>
       )}
@@ -146,7 +146,7 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
       <TypingBridge inputRef={bridgeRef} value={current} onValue={setCurrent} onEnter={submit} />
-      <div style={{ height: 22, marginBottom: 6, fontSize: 13 }}>{toast && <span style={{ background: C.panel2, padding: "4px 12px", borderRadius: 6 }}>{toast}</span>}</div>
+      <div style={{ height: 22, marginBottom: 6, fontSize: "0.8125rem" }}>{toast && <span style={{ background: C.panel2, padding: "4px 12px", borderRadius: 6 }}>{toast}</span>}</div>
       {/* Tapping the grid opens the phone's own keyboard. */}
       <div onClick={openPhoneKeyboard} style={{ display: "grid", gridTemplateRows: `repeat(${W_ROWS}, 1fr)`, gap: 6, marginBottom: 14, cursor: "text" }}>
         {Array.from({ length: W_ROWS }).map((_, r) => {
@@ -164,7 +164,7 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
                   style={{ width: 56, height: 56, display: "grid", placeItems: "center",
                     background: face ? grad(face) : "transparent", border: `2px solid ${bd}`, borderRadius: 12,
                     boxShadow: face ? `${GLOSS}, 0 1px 2px rgba(74,53,36,.16), 0 4px 10px rgba(74,53,36,.13)` : "none",
-                    fontSize: 27, fontWeight: 800, textTransform: "uppercase",
+                    fontSize: "1.6875rem", fontWeight: 800, textTransform: "uppercase",
                     color: face ? "#fff" : C.text, textShadow: face ? "0 1px 2px rgba(74,53,36,.3)" : "none",
                     animationDelay: revealed ? `${c * 0.18}s` : "0s" }}>{ch}</div>;
               })}
@@ -179,7 +179,7 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
       )}
       <Keyboard onKey={onKey} keyState={keyState} />
       <button onClick={openPhoneKeyboard}
-        style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: 13, fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
+        style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: "0.8125rem", fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
         Use my phone's keyboard instead
       </button>
     </div>
@@ -189,7 +189,7 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
    handlers this used to carry: those never fired for a finger, and could leave
    a key stuck in the pressed position if the pointer left mid-tap. */
 function KbKey({ children, onClick, wide, bg = "#e0be93", kc = C.text }) {
-  return <button className="btn3d" onClick={onClick} style={{ minWidth: wide ? 54 : 30, height: 58, background: grad(bg), color: kc, border: "none", borderRadius: 11, fontSize: wide ? 12 : 16, fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 48, boxShadow: `${GLOSS}, 0 1px 2px rgba(74,53,36,.16), 0 3px 8px rgba(74,53,36,.12)`, textShadow: kc === "#fff" ? "0 1px 1px rgba(74,53,36,.3)" : "none", touchAction: "manipulation", userSelect: "none" }}>{children}</button>;
+  return <button className="btn3d" onClick={onClick} style={{ minWidth: wide ? 54 : 30, height: 58, background: grad(bg), color: kc, border: "none", borderRadius: 11, fontSize: wide ? "0.75rem" : "1rem", fontWeight: 700, textTransform: "uppercase", cursor: "pointer", flex: wide ? "0 0 auto" : "1 1 0", maxWidth: 48, boxShadow: `${GLOSS}, 0 1px 2px rgba(74,53,36,.16), 0 3px 8px rgba(74,53,36,.12)`, textShadow: kc === "#fff" ? "0 1px 1px rgba(74,53,36,.3)" : "none", touchAction: "manipulation", userSelect: "none" }}>{children}</button>;
 }
 
 /* The on-screen keyboard. It reclaims the page's side padding so the keys get
@@ -349,26 +349,26 @@ function OnlineWordle({ roomCode, navigate }) {
         <p style={pStyle}>Same word, both of you at once. First to solve it wins the round.</p>
         <InviteLink gameId="wordle" roomCode={roomCode} />
 
-        <div style={{ marginTop: 26, marginBottom: 8, fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 }}>
+        <div style={{ marginTop: 26, marginBottom: 8, fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 }}>
           Round length
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 18 }}>
           {DURATION_LABELS.map(([ms, label]) => (
             <Btn key={ms} variant={g.durationMs === ms ? "primary" : "ghost"}
               onClick={() => isHost && send({ type: 'config', durationMs: ms })}
-              style={{ padding: "8px 18px", fontSize: 14, opacity: isHost ? 1 : .6, cursor: isHost ? "pointer" : "default" }}>
+              style={{ padding: "8px 18px", fontSize: "0.875rem", opacity: isHost ? 1 : .6, cursor: isHost ? "pointer" : "default" }}>
               {label}
             </Btn>
           ))}
         </div>
-        {!isHost && <p style={{ ...pStyle, fontSize: 13 }}>{room.players.find((p) => p.id === room.hostId)?.name ?? 'The host'} picks the length and starts the game.</p>}
+        {!isHost && <p style={{ ...pStyle, fontSize: "0.8125rem" }}>{room.players.find((p) => p.id === room.hostId)?.name ?? 'The host'} picks the length and starts the game.</p>}
 
-        <div style={{ fontSize: 14, color: C.dim, marginBottom: 16 }}>
+        <div style={{ fontSize: "0.875rem", color: C.dim, marginBottom: 16 }}>
           {opponent ? `${opponent.name} is here.` : 'Nobody else here yet.'}
         </div>
         {isHost
           ? <Btn disabled={!opponent} style={{ opacity: opponent ? 1 : .5 }} onClick={() => send({ type: 'start' })}>Start</Btn>
-          : <div style={{ fontSize: 14, color: C.dim }}>Waiting for the host to start…</div>}
+          : <div style={{ fontSize: "0.875rem", color: C.dim }}>Waiting for the host to start…</div>}
         <Btn variant="subtle" style={{ marginTop: 16 }} onClick={() => navigate('wordle')}>Leave room</Btn>
       </Centered>
     );
@@ -402,7 +402,7 @@ function OnlineWordle({ roomCode, navigate }) {
     <Centered>
       <RoomStatus status={status} error={null} />
 
-      <div style={{ display: "flex", gap: 18, fontSize: 14, marginBottom: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 18, fontSize: "0.875rem", marginBottom: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
         <span style={{ color: C.accent, fontWeight: 800 }}>{me.name} {g.wins[playerId] ?? 0}</span>
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: C.accent2, fontWeight: 800 }}>{opponent?.name ?? '—'} {opponent ? (g.wins[opponent.id] ?? 0) : 0}</span>
@@ -410,7 +410,7 @@ function OnlineWordle({ roomCode, navigate }) {
         {!over && <Countdown endsAt={g.roundEndsAt} />}
       </div>
 
-      <div style={{ height: 22, marginBottom: 6, fontSize: 13 }}>
+      <div style={{ height: 22, marginBottom: 6, fontSize: "0.8125rem" }}>
         {toast && <span style={{ background: C.panel2, padding: "4px 12px", borderRadius: 6 }}>{toast}</span>}
       </div>
 
@@ -418,11 +418,11 @@ function OnlineWordle({ roomCode, navigate }) {
 
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
         <div className={shake ? "row-shake" : ""} onClick={openPhoneKeyboard} style={{ cursor: "text" }}>
-          <div style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: C.dim, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>You</div>
+          <div style={{ fontSize: "0.75rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.dim, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>You</div>
           <Grid rows={myRows} size={56} />
         </div>
         <div>
-          <div style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: C.dim, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>
+          <div style={{ fontSize: "0.75rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.dim, fontWeight: 700, marginBottom: 8, textAlign: "center" }}>
             {opponent?.name ?? 'Opponent'}{oppBoard?.solved ? ' ✓' : ''}
           </div>
           <Grid rows={oppRows} size={26} hideLetters />
@@ -431,8 +431,8 @@ function OnlineWordle({ roomCode, navigate }) {
 
       {over ? (
         <>
-          <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6, color: g.winner === playerId ? C.correct : C.text }}>{verdict}</div>
-          <div style={{ fontSize: 15, color: C.dim, marginBottom: 16 }}>
+          <div style={{ fontSize: "1.0625rem", fontWeight: 800, marginBottom: 6, color: g.winner === playerId ? C.correct : C.text }}>{verdict}</div>
+          <div style={{ fontSize: "0.9375rem", color: C.dim, marginBottom: 16 }}>
             The word was <b style={{ color: C.text, textTransform: "uppercase" }}>{g.answer}</b>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
@@ -441,14 +441,14 @@ function OnlineWordle({ roomCode, navigate }) {
           </div>
         </>
       ) : iAmDone ? (
-        <div style={{ fontSize: 15, color: C.dim }}>
+        <div style={{ fontSize: "0.9375rem", color: C.dim }}>
           {myBoard.solved ? 'Solved — waiting for the round to finish…' : 'Out of guesses — waiting…'}
         </div>
       ) : (
         <>
           <Keyboard onKey={onKey} keyState={keyState} />
           <button onClick={openPhoneKeyboard}
-            style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: 13, fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
+            style={{ marginTop: 12, background: "none", border: "none", color: C.dim, fontSize: "0.8125rem", fontFamily: "inherit", cursor: "pointer", textDecoration: "underline" }}>
             Use my phone's keyboard instead
           </button>
         </>

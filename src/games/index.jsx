@@ -7,6 +7,7 @@ import Imposter from './Imposter.jsx';
 import Hangman from './Hangman.jsx';
 import Snake from './Snake.jsx';
 import Minesweeper from './Minesweeper.jsx';
+import { CONTENT } from '../content.js';
 
 /* ============================= GAME REGISTRY =============================
 
@@ -19,16 +20,17 @@ import Minesweeper from './Minesweeper.jsx';
      3. Append one object to GAMES below.
    That's it. No other file needs to change.
 
-   Fields:
+   Fields here are structural only:
      id      unique slug, used as the route value
-     name    display name, shown on the card and in the header
-     tag     one-line tagline on the card
-     blurb   a sentence or two; becomes the page's meta description
      accent  colour used for the card hover glow, icon tint and header name
-     players badge text on the card
      daily   optional; puts a "Daily" badge on the card
      Comp    the game component itself
      icon    <g> contents of a 52x52 SVG, drawn in the card's icon square
+
+   The copy — name, tag, blurb, players — lives in src/content.js under the
+   same id, and is merged in at the bottom of this file. That keeps every
+   editable string in one file for the editor at /admin to rewrite. A new game
+   needs an entry in both places.
 
    ABOUT THE ICONS
    Every icon is drawn here rather than loaded as an image: they stay crisp at
@@ -41,15 +43,14 @@ import Minesweeper from './Minesweeper.jsx';
    on the landing page at once, and duplicate ids would silently make one
    icon adopt another's colours.
 */
-export const GAMES = [
+const ENTRIES = [
   {
     /* The id stays "wordle" although the display name no longer is. It is the
        route, the key the browser sends the room server, and the localStorage
        key holding everyone's daily streak — changing it would need a Worker
        deploy, break live invite links and reset every streak. */
-    id: "wordle", name: "Wordl Unlimited", tag: "Word guessing",
-    blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — the same word everyone else gets — then keep going with unlimited words. No sign-up.", accent: "#3aa76d",
-    players: "1 player", daily: true, Comp: Wordle,
+    id: "wordle", accent: "#3aa76d",
+    daily: true, Comp: Wordle,
     icon: (
       <g>
         <defs>
@@ -74,9 +75,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "wavelength", name: "Wavelength", tag: "Read minds",
-    blurb: "Read your friends' minds. One player gives a clue, everyone else guesses where it sits on a hidden scale. Two to seven players, online over an invite link.", accent: "#4ec3c7",
-    players: "2 players", Comp: Wavelength,
+    id: "wavelength", accent: "#4ec3c7",
+    Comp: Wavelength,
     icon: (
       <g>
         <defs>
@@ -94,9 +94,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "tictactoe", name: "Tic-Tac-Toe", tag: "Classic 3-in-a-row",
-    blurb: "The classic three-in-a-row, for two players on one device or online with a friend. No sign-up, no apps.", accent: "#6c8cff",
-    players: "2 players", Comp: TicTacToe,
+    id: "tictactoe", accent: "#6c8cff",
+    Comp: TicTacToe,
     icon: (
       <g>
         <defs>
@@ -118,9 +117,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "flags", name: "Flag Quiz", tag: "Guess the country",
-    blurb: "Name the country from its flag. Race the clock on your own or challenge a friend online. Nearly two hundred flags.", accent: "#d4a13c",
-    players: "1 player", Comp: FlagQuiz,
+    id: "flags", accent: "#d4a13c",
+    Comp: FlagQuiz,
     icon: (
       <g>
         <defs>
@@ -139,9 +137,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "connect4", name: "Connect 4", tag: "Four in a row",
-    blurb: "Drop your discs and get four in a row before your opponent does. Two players on one device, or online over an invite link.", accent: "#1b64d4",
-    players: "2 players", Comp: ConnectFour,
+    id: "connect4", accent: "#1b64d4",
+    Comp: ConnectFour,
     icon: (
       <g>
         <defs>
@@ -171,9 +168,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "hangman", name: "Hangman", tag: "Save the cowboy",
-    blurb: "Guess the word one letter at a time and save the cowboy. A new daily word for everyone, a bot to play against, or pass and play with friends.", accent: "#9c7a54",
-    players: "1-6 players", daily: true, Comp: Hangman,
+    id: "hangman", accent: "#9c7a54",
+    daily: true, Comp: Hangman,
     icon: (
       <g>
         <defs>
@@ -195,9 +191,8 @@ export const GAMES = [
     ),
   },
   {
-    id: "imposter", name: "Imposter", tag: "Spot the faker",
-    blurb: "Everyone sees the same secret word — except one player. Talk your way through the round and spot the faker. Three to ten players on one device.", accent: "#c0492f",
-    players: "3-10 players", Comp: Imposter,
+    id: "imposter", accent: "#c0492f",
+    Comp: Imposter,
     icon: (
       <g>
         <defs>
@@ -218,9 +213,7 @@ export const GAMES = [
     ),
   },
   {
-    id: "snake", name: "Snake", tag: "Eat, grow, don't crash",
-    blurb: "Guide the snake around a 15 by 15 board, eat apples and grow. Three speeds, from steady to very fast, and your best score is kept on your device.",
-    accent: "#3f9d5c", players: "1 player", Comp: Snake,
+    id: "snake", accent: "#3f9d5c", Comp: Snake,
     icon: (
       <g>
         <defs>
@@ -240,9 +233,7 @@ export const GAMES = [
     ),
   },
   {
-    id: "minesweeper", name: "Minesweeper", tag: "Clear the board, dodge the mines",
-    blurb: "Uncover every safe square without hitting a mine. Three classic sizes from 9 by 9 up to 16 by 30, with a timer and your best time kept on your device.",
-    accent: "#8a6d52", players: "1 player", Comp: Minesweeper,
+    id: "minesweeper", accent: "#8a6d52", Comp: Minesweeper,
     icon: (
       <g>
         <defs>
@@ -263,5 +254,10 @@ export const GAMES = [
     ),
   },
 ];
+
+/* Text lives in src/content.js so the editor at /admin has a single file to
+   rewrite. Everything here is structural — the id, the accent, the icon and
+   the component — and none of it is editable copy. */
+export const GAMES = ENTRIES.map((g) => ({ ...g, ...CONTENT.games[g.id] }));
 
 export default GAMES;

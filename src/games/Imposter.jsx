@@ -10,7 +10,7 @@ import { CATEGORIES, maxImposters, MIN_PLAYERS, MAX_PLAYERS } from '../data/impo
    One device is handed around: each player opens their own card in a
    full-screen overlay so nobody else sees it. */
 
-const labelStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
 const cardShell = {
   position: "relative", width: "min(92vw, 420px)", minHeight: 320, borderRadius: 22, overflow: "hidden",
   background: C.panel, display: "grid", placeItems: "center", padding: 28, fontFamily: "inherit", color: C.text,
@@ -70,15 +70,15 @@ export default function Imposter() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
           {players.map((p, i) => (
             <div key={p.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ width: 22, color: C.dim, fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
+              <span style={{ width: 22, color: C.dim, fontSize: "0.8125rem", fontWeight: 700 }}>{i + 1}</span>
               <input value={p.name} onChange={(e) => renamePlayer(p.id, e.target.value)}
                 placeholder={`Player ${i + 1}`} maxLength={18}
-                style={{ flex: 1, minWidth: 0, padding: "10px 14px", fontSize: 15, fontFamily: "inherit",
+                style={{ flex: 1, minWidth: 0, padding: "10px 14px", fontSize: "0.9375rem", fontFamily: "inherit",
                   color: C.text, background: "#fff", border: `2px solid ${C.line}`, borderRadius: 10, outlineColor: C.accent }} />
               <button onClick={() => removePlayer(p.id)} disabled={players.length <= MIN_PLAYERS}
                 aria-label={`Remove ${nameOf(p, i)}`}
                 style={{ width: 36, height: 36, borderRadius: 9, cursor: players.length <= MIN_PLAYERS ? "default" : "pointer",
-                  border: `1px solid ${C.line}`, background: "transparent", color: C.dim, fontSize: 18, lineHeight: 1,
+                  border: `1px solid ${C.line}`, background: "transparent", color: C.dim, fontSize: "1.125rem", lineHeight: 1,
                   opacity: players.length <= MIN_PLAYERS ? .35 : 1 }}>&minus;</button>
             </div>
           ))}
@@ -90,10 +90,10 @@ export default function Imposter() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
           {Array.from({ length: cap }).map((_, i) => (
             <Btn key={i} variant={imposterCount === i + 1 ? "primary" : "ghost"} onClick={() => setImposterCount(i + 1)}
-              style={{ padding: "8px 20px", fontSize: 14 }}>{i + 1}</Btn>
+              style={{ padding: "8px 20px", fontSize: "0.875rem" }}>{i + 1}</Btn>
           ))}
         </div>
-        <p style={{ ...pStyle, fontSize: 13, marginBottom: 24 }}>
+        <p style={{ ...pStyle, fontSize: "0.8125rem", marginBottom: 24 }}>
           {players.length} players allows {cap === 1 ? "1 imposter" : `up to ${cap} imposters`}.
         </p>
 
@@ -103,7 +103,7 @@ export default function Imposter() {
             const on = cats.includes(c.key);
             return (
               <button key={c.key} onClick={() => toggleCat(c.key)}
-                style={{ padding: "9px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700,
+                style={{ padding: "9px 16px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontSize: "0.875rem", fontWeight: 700,
                   background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
                   border: `1px solid ${on ? C.accent : C.line}`, transition: "background .15s, color .15s" }}>
                 {c.name}
@@ -115,11 +115,11 @@ export default function Imposter() {
         <div style={{ ...labelStyle, marginBottom: 8 }}>Show the category to the imposter</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
           <Btn variant={showCatToImposter ? "primary" : "ghost"} onClick={() => setShowCatToImposter(true)}
-            style={{ padding: "8px 20px", fontSize: 14 }}>On</Btn>
+            style={{ padding: "8px 20px", fontSize: "0.875rem" }}>On</Btn>
           <Btn variant={!showCatToImposter ? "primary" : "ghost"} onClick={() => setShowCatToImposter(false)}
-            style={{ padding: "8px 20px", fontSize: 14 }}>Off</Btn>
+            style={{ padding: "8px 20px", fontSize: "0.875rem" }}>Off</Btn>
         </div>
-        <p style={{ ...pStyle, fontSize: 13, marginBottom: 26 }}>
+        <p style={{ ...pStyle, fontSize: "0.8125rem", marginBottom: 26 }}>
           {showCatToImposter
             ? "The imposter is told the category, so they have a fighting chance of blending in."
             : "The imposter goes in blind — much harder for them."}
@@ -144,7 +144,7 @@ export default function Imposter() {
             const done = seen.includes(p.id);
             return (
               <TileBtn key={p.id} onClick={() => !done && setOpen({ id: p.id, shown: false })} disabled={done}
-                style={{ padding: "18px 12px", fontSize: 16, fontWeight: 700, opacity: done ? .55 : 1,
+                style={{ padding: "18px 12px", fontSize: "1rem", fontWeight: 700, opacity: done ? .55 : 1,
                   background: done ? C.panel2 : C.panel, border: `2px solid ${done ? C.line : "transparent"}` }}>
                 {nameOf(p, i)}{done ? "  ✓" : ""}
               </TileBtn>
@@ -167,8 +167,8 @@ export default function Imposter() {
                   style={{ ...cardShell, cursor: "pointer", border: `2px dashed ${C.line}` }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                     <div style={labelStyle}>{nameOf(p, i)}</div>
-                    <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 34, fontWeight: 700 }}>Tap to reveal</div>
-                    <div style={{ fontSize: 13.5, color: C.dim, maxWidth: 260, lineHeight: 1.5 }}>
+                    <div style={{ fontFamily: "var(--font-head)", fontSize: "2.125rem", fontWeight: 700 }}>Tap to reveal</div>
+                    <div style={{ fontSize: "0.84375rem", color: C.dim, maxWidth: 260, lineHeight: 1.5 }}>
                       Make sure nobody else can see the screen.
                     </div>
                   </div>
@@ -182,11 +182,11 @@ export default function Imposter() {
                       {seesCat ? round.catName : "Category hidden"}
                     </div>
                     {isImp ? (
-                      <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 46, fontWeight: 700, color: C.danger }}>Imposter</div>
+                      <div style={{ fontFamily: "var(--font-head)", fontSize: "2.875rem", fontWeight: 700, color: C.danger }}>Imposter</div>
                     ) : (
-                      <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 40, fontWeight: 700, lineHeight: 1.15 }}>{round.word}</div>
+                      <div style={{ fontFamily: "var(--font-head)", fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.15 }}>{round.word}</div>
                     )}
-                    <p style={{ fontSize: 14, color: C.dim, lineHeight: 1.55, maxWidth: 280, margin: 0 }}>
+                    <p style={{ fontSize: "0.875rem", color: C.dim, lineHeight: 1.55, maxWidth: 280, margin: 0 }}>
                       {isImp
                         ? "You don't know the word. Give a clue vague enough to pass, specific enough to look real."
                         : "Give a one-word clue about this. Don't say the word itself."}
@@ -209,7 +209,7 @@ export default function Imposter() {
       <Centered>
         <Style />
         <div style={{ ...labelStyle, marginBottom: 10 }}>First clue</div>
-        <h2 className="imp-in" style={{ ...hStyle, fontSize: 40, marginBottom: 14 }}>{nameOf(players[si], si)}</h2>
+        <h2 className="imp-in" style={{ ...hStyle, fontSize: "2.5rem", marginBottom: 14 }}>{nameOf(players[si], si)}</h2>
         <p style={pStyle}>
           {nameOf(players[si], si)} gives the first clue, then carry on clockwise. One word each,
           no repeats. After a full lap, argue it out and vote.
@@ -225,7 +225,7 @@ export default function Imposter() {
     <Centered>
       <Style />
       <div style={{ ...labelStyle, marginBottom: 10 }}>{round.catName}</div>
-      <div className="imp-word" style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 48, fontWeight: 700, marginBottom: 26, lineHeight: 1.1 }}>
+      <div className="imp-word" style={{ fontFamily: "var(--font-head)", fontSize: "3rem", fontWeight: 700, marginBottom: 26, lineHeight: 1.1 }}>
         {round.word}
       </div>
 
@@ -233,7 +233,7 @@ export default function Imposter() {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", marginBottom: 30 }}>
         {impostors.map(({ p, i }, n) => (
           <div key={p.id} className="imp-rise"
-            style={{ animationDelay: `${0.12 + n * 0.14}s`, padding: "14px 26px", borderRadius: 14, fontSize: 20, fontWeight: 800,
+            style={{ animationDelay: `${0.12 + n * 0.14}s`, padding: "14px 26px", borderRadius: 14, fontSize: "1.25rem", fontWeight: 800,
               color: "#fff", background: C.danger, boxShadow: `0 10px 26px ${C.danger}55` }}>
             {nameOf(p, i)}
           </div>

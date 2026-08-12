@@ -185,7 +185,7 @@ export default function Snake() {
         The board is {SIZE} by {SIZE}, so a perfect run is {MAX_SCORE} apples.
       </p>
       <div style={{ width: "100%", maxWidth: 460, textAlign: "left" }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
+        <div style={{ fontSize: "0.78125rem", fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
           Difficulty is how fast it moves
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
@@ -195,11 +195,11 @@ export default function Snake() {
               <TileBtn key={s.key} onClick={() => start(s.key)}
                 style={{ padding: "14px 16px", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ flex: 1 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, display: "block" }}>{s.name}</span>
-                  <span style={{ fontSize: 13, color: C.dim }}>{s.blurb}</span>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, display: "block" }}>{s.name}</span>
+                  <span style={{ fontSize: "0.8125rem", color: C.dim }}>{s.blurb}</span>
                 </span>
                 {record > 0 && (
-                  <span style={{ fontSize: 12, color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "0.75rem", color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
                     Best {record}
                   </span>
                 )}
@@ -327,7 +327,7 @@ export default function Snake() {
         <Btn variant="ghost" onClick={again}>Restart</Btn>
         <Btn variant="subtle" onClick={() => setScreen("menu")}>Change speed</Btn>
       </div>
-      <p style={{ ...pStyle, fontSize: 12.5, marginTop: 14 }}>
+      <p style={{ ...pStyle, fontSize: "0.78125rem", marginTop: 14 }}>
         Arrow keys or WASD, swipe on the board, or use the pad. Space pauses.
       </p>
     </Centered>
@@ -337,8 +337,8 @@ export default function Snake() {
 function Stat({ label, value, big, accent }) {
   return (
     <div style={{ textAlign: "center", minWidth: 62 }}>
-      <div style={{ fontSize: big ? 26 : 19, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: "tabular-nums", color: accent ? C.accent : C.text }}>{value}</div>
-      <div style={{ fontSize: 10.5, color: C.dim, textTransform: "uppercase", letterSpacing: ".5px" }}>{label}</div>
+      <div style={{ fontSize: big ? "1.625rem" : "1.1875rem", fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: "tabular-nums", color: accent ? C.accent : C.text }}>{value}</div>
+      <div style={{ fontSize: "0.65625rem", color: C.dim, textTransform: "uppercase", letterSpacing: ".5px" }}>{label}</div>
     </div>
   );
 }
@@ -358,20 +358,20 @@ function Overlay({ status, score, best, onAgain, onMenu, onResume }) {
       backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", padding: 18, textAlign: "center",
     }}>
       <div>
-        <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 27, fontWeight: 700, marginBottom: 4 }}>{title}</div>
+        <div style={{ fontFamily: "var(--font-head)", fontSize: "1.6875rem", fontWeight: 700, marginBottom: 4 }}>{title}</div>
         {status === "ready" ? (
-          <div style={{ color: C.dim, fontSize: 14, maxWidth: 250 }}>
+          <div style={{ color: C.dim, fontSize: "0.875rem", maxWidth: 250 }}>
             Press an arrow key, swipe, or tap the pad to set off.
           </div>
         ) : status === "paused" ? (
           <Btn onClick={onResume} style={{ marginTop: 10 }}>Resume</Btn>
         ) : (
           <>
-            <div style={{ color: C.dim, fontSize: 14.5, marginBottom: 2 }}>
+            <div style={{ color: C.dim, fontSize: "0.90625rem", marginBottom: 2 }}>
               {score} {score === 1 ? "apple" : "apples"}
               {status === "won" && ` — every one of them`}
             </div>
-            {beat && <div style={{ color: C.accent, fontWeight: 800, fontSize: 13.5, marginBottom: 4 }}>New best!</div>}
+            {beat && <div style={{ color: C.accent, fontWeight: 800, fontSize: "0.84375rem", marginBottom: 4 }}>New best!</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10 }}>
               <Btn onClick={onAgain}>Play again</Btn>
               <Btn variant="subtle" onClick={onMenu}>Speed</Btn>

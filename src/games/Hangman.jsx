@@ -15,7 +15,7 @@ import { DailyPanel } from '../shared/dailyUi.jsx';
 const MAX_WRONG = 7;
 const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 const MIN_PLAYERS = 2, MAX_PLAYERS = 6, MAX_ROUNDS = 10;
-const labelStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
 
 const cleanWord = (raw) => raw.toUpperCase().replace(/[^A-Z ]/g, "").replace(/\s+/g, " ").trim();
 
@@ -133,7 +133,7 @@ export default function Hangman() {
         <Btn variant="ghost" onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Play the bot</Btn>
         <Btn variant="ghost" onClick={() => { setMode("local"); setScreen("localSetup"); }}>Pass and play</Btn>
       </div>
-      <p style={{ ...pStyle, fontSize: 13, marginTop: 14, marginBottom: 0 }}>
+      <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, marginBottom: 0 }}>
         Everyone gets the same daily word — puzzle #{day}.
         {record.streak > 0 && ` You are ${record.streak} day${record.streak === 1 ? "" : "s"} into a streak.`}
       </p>
@@ -153,8 +153,8 @@ export default function Hangman() {
           {DIFFICULTIES.map((d) => (
             <TileBtn key={d.key} onClick={() => setDifficulty(d.key)}
               style={{ padding: "14px 16px", textAlign: "left", border: `2px solid ${difficulty === d.key ? C.accent : "transparent"}` }}>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>{d.name}</div>
-              <div style={{ fontSize: 13, color: C.dim, marginTop: 2 }}>{d.blurb}</div>
+              <div style={{ fontSize: "1rem", fontWeight: 800 }}>{d.name}</div>
+              <div style={{ fontSize: "0.8125rem", color: C.dim, marginTop: 2 }}>{d.blurb}</div>
             </TileBtn>
           ))}
         </div>
@@ -180,16 +180,16 @@ export default function Hangman() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
           {players.map((p, i) => (
             <div key={p.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ width: 22, color: C.dim, fontSize: 13, fontWeight: 700 }}>{i + 1}</span>
+              <span style={{ width: 22, color: C.dim, fontSize: "0.8125rem", fontWeight: 700 }}>{i + 1}</span>
               <input value={p.name} maxLength={18}
                 onChange={(e) => setPlayers((ps) => ps.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)))}
                 placeholder={`Player ${i + 1}`}
-                style={{ flex: 1, minWidth: 0, padding: "10px 14px", fontSize: 15, fontFamily: "inherit", color: C.text,
+                style={{ flex: 1, minWidth: 0, padding: "10px 14px", fontSize: "0.9375rem", fontFamily: "inherit", color: C.text,
                   background: "#fff", border: `2px solid ${C.line}`, borderRadius: 10, outlineColor: C.accent }} />
               <button onClick={() => setPlayers((ps) => ps.length <= MIN_PLAYERS ? ps : ps.filter((x) => x.id !== p.id))}
                 disabled={players.length <= MIN_PLAYERS} aria-label={`Remove ${nameOf(p, i)}`}
                 style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${C.line}`, background: "transparent",
-                  color: C.dim, fontSize: 18, lineHeight: 1, cursor: players.length <= MIN_PLAYERS ? "default" : "pointer",
+                  color: C.dim, fontSize: "1.125rem", lineHeight: 1, cursor: players.length <= MIN_PLAYERS ? "default" : "pointer",
                   opacity: players.length <= MIN_PLAYERS ? .35 : 1 }}>&minus;</button>
             </div>
           ))}
@@ -223,9 +223,9 @@ export default function Hangman() {
           style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
           <input value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus
             placeholder="Type a word" autoComplete="off" spellCheck="false" maxLength={20}
-            style={{ width: "100%", padding: "14px 16px", fontSize: 18, fontFamily: "inherit", color: C.text,
+            style={{ width: "100%", padding: "14px 16px", fontSize: "1.125rem", fontFamily: "inherit", color: C.text,
               background: "#fff", border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
-          <div style={{ minHeight: 22, fontSize: 13.5, color: C.dim }}>
+          <div style={{ minHeight: 22, fontSize: "0.84375rem", color: C.dim }}>
             {suggestion
               ? <>Did you mean <b style={{ color: C.accent }}>{suggestion}</b>? You can submit yours anyway.</>
               : cleaned.length > 0 && cleaned.length < 2 ? "A little longer, please." : ""}
@@ -260,7 +260,7 @@ export default function Hangman() {
         {mode === "bot" ? (
           <>
             <div style={{ ...labelStyle, marginBottom: 10 }}>Final score</div>
-            <div className="hm-pop" style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 52, fontWeight: 700, marginBottom: 6 }}>
+            <div className="hm-pop" style={{ fontFamily: "var(--font-head)", fontSize: "3.25rem", fontWeight: 700, marginBottom: 6 }}>
               {botWins} / {rounds}
             </div>
             <p style={pStyle}>{perfect ? "A perfect score. The cowboy lives." : "Not perfect — the bot got a few past you."}</p>
@@ -272,7 +272,7 @@ export default function Hangman() {
             <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
               {table.map((t, i) => (
                 <div key={t.name + i} className="hm-rise" style={{ animationDelay: `${i * 0.08}s`, display: "flex", justifyContent: "space-between",
-                  padding: "12px 16px", borderRadius: 12, background: t.pts === top ? C.panel2 : C.panel, fontSize: 16 }}>
+                  padding: "12px 16px", borderRadius: 12, background: t.pts === top ? C.panel2 : C.panel, fontSize: "1rem" }}>
                   <span style={{ fontWeight: 700 }}>{t.name}</span>
                   <span style={{ fontWeight: 800, color: C.accent2 }}>{t.pts}</span>
                 </div>
@@ -293,7 +293,7 @@ export default function Hangman() {
   return (
     <Centered>
       <Anim />
-      <div style={{ display: "flex", gap: 18, fontSize: 13, color: C.dim, marginBottom: 6, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 18, fontSize: "0.8125rem", color: C.dim, marginBottom: 6, flexWrap: "wrap", justifyContent: "center" }}>
         {mode === "daily" ? <span>Puzzle #{day}</span> : <span>Round {round} of {rounds}</span>}
         {mode === "bot" && <><span style={{ color: C.accent2 }}>Solved {botWins}</span><span>{DIFFICULTIES.find((d) => d.key === difficulty).name}</span></>}
         {mode === "daily" && record.streak > 0 && <span style={{ color: C.accent2 }}>Streak {record.streak}</span>}
@@ -309,7 +309,7 @@ export default function Hangman() {
           const show = guessed.includes(ch) || over;
           const missed = over && !guessed.includes(ch);
           return (
-            <span key={i} style={{ width: 30, fontSize: 27, fontWeight: 800, textAlign: "center",
+            <span key={i} style={{ width: 30, fontSize: "1.6875rem", fontWeight: 800, textAlign: "center",
               borderBottom: `3px solid ${missed ? C.danger : C.line}`, color: missed ? C.danger : C.text, lineHeight: 1.25 }}>
               {show ? ch : ""}
             </span>
@@ -317,7 +317,7 @@ export default function Hangman() {
         })}
       </div>
 
-      <div style={{ minHeight: 30, marginBottom: 6, fontSize: 16, fontWeight: 800 }}>
+      <div style={{ minHeight: 30, marginBottom: 6, fontSize: "1rem", fontWeight: 800 }}>
         {won && <span style={{ color: C.correct }}>Got it!</span>}
         {lost && <span style={{ color: C.danger }}>Out of guesses.</span>}
       </div>
@@ -351,7 +351,7 @@ export default function Hangman() {
                 return (
                   <button key={k} onClick={() => guess(L)} disabled={used}
                     style={{ flex: "1 1 0", maxWidth: 46, height: 50, borderRadius: 9, border: "none", cursor: used ? "default" : "pointer",
-                      fontFamily: "inherit", fontSize: 15, fontWeight: 700, textTransform: "uppercase",
+                      fontFamily: "inherit", fontSize: "0.9375rem", fontWeight: 700, textTransform: "uppercase",
                       background: hit ? C.correct : used ? "transparent" : "#e0be93",
                       color: hit ? "#fff" : used ? C.dim : C.text,
                       textDecoration: used && !hit ? "line-through" : "none",
@@ -375,7 +375,7 @@ function RoundPicker({ rounds, setRounds }) {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
         {Array.from({ length: MAX_ROUNDS }).map((_, i) => (
           <Btn key={i} variant={rounds === i + 1 ? "primary" : "ghost"} onClick={() => setRounds(i + 1)}
-            style={{ padding: "7px 15px", fontSize: 14 }}>{i + 1}</Btn>
+            style={{ padding: "7px 15px", fontSize: "0.875rem" }}>{i + 1}</Btn>
         ))}
       </div>
     </>

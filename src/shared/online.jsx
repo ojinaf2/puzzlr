@@ -6,7 +6,7 @@ import { saveName } from './useRoom.js';
 /* Pieces every online game needs: an invite link to share, a connection
    banner, and the waiting-room screens shown before play begins. */
 
-const labelStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
 
 export function InviteLink({ gameId, roomCode }) {
   const [copied, setCopied] = useState(false);
@@ -25,12 +25,12 @@ export function InviteLink({ gameId, roomCode }) {
   return (
     <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
       <div style={{ ...labelStyle, marginBottom: 8 }}>Room code</div>
-      <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 42, fontWeight: 700, letterSpacing: ".12em", marginBottom: 16 }}>
+      <div style={{ fontFamily: "var(--font-head)", fontSize: "2.625rem", fontWeight: 700, letterSpacing: ".12em", marginBottom: 16 }}>
         {roomCode}
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "8px 8px 8px 14px" }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" }}>{url}</span>
-        <Btn onClick={copy} style={{ padding: "8px 16px", fontSize: 13, flex: "0 0 auto" }}>{copied ? "Copied" : "Copy"}</Btn>
+        <span style={{ flex: 1, minWidth: 0, fontSize: "0.8125rem", color: C.dim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" }}>{url}</span>
+        <Btn onClick={copy} style={{ padding: "8px 16px", fontSize: "0.8125rem", flex: "0 0 auto" }}>{copied ? "Copied" : "Copy"}</Btn>
       </div>
     </div>
   );
@@ -56,7 +56,7 @@ export function NameEntry({ initial, onDone }) {
       <form onSubmit={submit} style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
         <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus
           placeholder="Your name" maxLength={14} autoComplete="nickname"
-          style={{ width: "100%", padding: "14px 16px", fontSize: 18, fontFamily: "inherit", color: C.text,
+          style={{ width: "100%", padding: "14px 16px", fontSize: "1.125rem", fontFamily: "inherit", color: C.text,
             background: "#fff", border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
         <Btn type="submit" disabled={!clean} style={{ opacity: clean ? 1 : .5 }}>Continue</Btn>
       </form>
@@ -71,7 +71,7 @@ export function RoomStatus({ status, error }) {
     null;
   if (!note && !error) return <div style={{ height: 8 }} />;
   return (
-    <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 700, color: error ? C.danger : C.accent2 }}>
+    <div style={{ marginBottom: 12, fontSize: "0.8125rem", fontWeight: 700, color: error ? C.danger : C.accent2 }}>
       {error || note}
     </div>
   );
@@ -99,7 +99,7 @@ export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitin
       <h2 style={hStyle}>Joining room</h2>
       <p style={pStyle}>{status === 'reconnecting' || status === 'offline' ? 'Trying to reach the room…' : 'One moment…'}</p>
       <div style={{ ...labelStyle, marginBottom: 8 }}>Room code</div>
-      <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 34, fontWeight: 700, letterSpacing: ".12em" }}>{roomCode}</div>
+      <div style={{ fontFamily: "var(--font-head)", fontSize: "2.125rem", fontWeight: 700, letterSpacing: ".12em" }}>{roomCode}</div>
     </Centered>
   );
 
@@ -119,7 +119,7 @@ export function lobbyView({ status, room, me, roomCode, gameId, navigate, waitin
         <h2 style={hStyle}>{waitingFor ?? 'Waiting for someone to join'}</h2>
         <p style={pStyle}>Send this link to whoever you want to play with. They just open it — no sign-up.</p>
         <InviteLink gameId={gameId} roomCode={roomCode} />
-        <div style={{ marginTop: 22, fontSize: 14, color: C.dim }}>
+        <div style={{ marginTop: 22, fontSize: "0.875rem", color: C.dim }}>
           {others.length === 0 ? 'Nobody else here yet.' : `Here: ${others.map((p) => p.name).join(', ')}`}
         </div>
         <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => navigate(gameId)}>Leave room</Btn>

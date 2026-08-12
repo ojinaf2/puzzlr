@@ -17,7 +17,7 @@ function Flag({ code, style }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [code]);
   if (failed) return (
-    <div style={{ ...style, background: C.panel2, display: "grid", placeItems: "center", color: C.dim, fontSize: 12, fontWeight: 700, textTransform: "uppercase" }}>{code}</div>
+    <div style={{ ...style, background: C.panel2, display: "grid", placeItems: "center", color: C.dim, fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase" }}>{code}</div>
   );
   return (
     <img
@@ -159,10 +159,10 @@ function LocalFlagQuiz({ navigate }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         {[["easy", "Easy"], ["hard", "Hard"]].map(([d, label]) => (
           <Btn key={d} variant={difficulty === d ? "primary" : "ghost"} onClick={() => setDifficulty(d)}
-            style={{ padding: "8px 22px", fontSize: 14 }}>{label}</Btn>
+            style={{ padding: "8px 22px", fontSize: "0.875rem" }}>{label}</Btn>
         ))}
       </div>
-      <p style={{ ...pStyle, fontSize: 13.5, marginBottom: 22 }}>
+      <p style={{ ...pStyle, fontSize: "0.84375rem", marginBottom: 22 }}>
         {difficulty === "easy"
           ? "Four options to choose from."
           : "Flag → Country: type the country yourself, no options. Country → Flag: six flags instead of four."}
@@ -184,7 +184,7 @@ function LocalFlagQuiz({ navigate }) {
   const sixUp = q.options.length > 4;
   return (
     <Centered>
-      <div style={{ display: "flex", gap: 18, fontSize: 13, color: C.dim, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 18, fontSize: "0.8125rem", color: C.dim, marginBottom: 14 }}>
         <span>Question {qnum}</span><span style={{color:C.accent2}}>Score {score}</span><span style={{color:C.gold}}>Streak {streak}</span>
         <span>{q.difficulty === "hard" ? "Hard" : "Easy"}</span>
       </div>
@@ -203,7 +203,7 @@ function LocalFlagQuiz({ navigate }) {
                   onBlur={() => setListOpen(false)}
                   disabled={!!result} placeholder="Type the country" autoComplete="off" spellCheck="false"
                   role="combobox" aria-expanded={showList} aria-controls="fq-suggestions" aria-autocomplete="list"
-                  style={{ width: "100%", padding: "13px 16px", fontSize: 16, fontFamily: "inherit", color: C.text,
+                  style={{ width: "100%", padding: "13px 16px", fontSize: "1rem", fontFamily: "inherit", color: C.text,
                     background: result ? C.panel2 : "#fff", border: `2px solid ${result ? (correct ? C.correct : C.danger) : C.line}`,
                     borderRadius: 12, outlineColor: C.accent, transition: "border-color .2s" }} />
                 {showList && (
@@ -216,7 +216,7 @@ function LocalFlagQuiz({ navigate }) {
                         onMouseDown={(e) => e.preventDefault()}   // keep focus so onBlur doesn't close first
                         onClick={() => chooseSuggestion(c)}
                         onMouseEnter={() => setHighlight(i)}
-                        style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer", fontSize: 15,
+                        style={{ padding: "10px 12px", borderRadius: 8, cursor: "pointer", fontSize: "0.9375rem",
                           background: i === highlight ? C.panel : "transparent" }}>{c[0]}</li>
                     ))}
                   </ul>
@@ -230,14 +230,14 @@ function LocalFlagQuiz({ navigate }) {
                 const isAns = opt[1] === q.answer[1], isPick = picked && opt[1] === picked[1];
                 let bg = C.panel, bd = "transparent", col = C.text;
                 if (picked) { if (isAns) { bg = C.correct; bd = C.correct; col = "#fff"; } else if (isPick) { bg = C.danger; bd = C.danger; col = "#fff"; } else { bg = C.panel; } }
-                return <TileBtn key={opt[1]} onClick={() => pick(opt)} disabled={!!picked} style={{ background: bg, border: `2px solid ${bd}`, color: col, padding: "16px 12px", fontSize: 16, fontWeight: 700 }}>{opt[0]}</TileBtn>;
+                return <TileBtn key={opt[1]} onClick={() => pick(opt)} disabled={!!picked} style={{ background: bg, border: `2px solid ${bd}`, color: col, padding: "16px 12px", fontSize: "1rem", fontWeight: 700 }}>{opt[0]}</TileBtn>;
               })}
             </div>
           )}
         </>
       ) : (
         <>
-          <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 26, fontWeight: 700, marginBottom: 24 }}>{q.answer[0]}</div>
+          <div style={{ fontFamily: "var(--font-head)", fontSize: "1.625rem", fontWeight: 700, marginBottom: 24 }}>{q.answer[0]}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, width: "100%", maxWidth: sixUp ? 620 : 460 }}>
             {q.options.map((opt) => {
               const isAns = opt[1] === q.answer[1], isPick = picked && opt[1] === picked[1];
@@ -251,7 +251,7 @@ function LocalFlagQuiz({ navigate }) {
         </>
       )}
 
-      <div style={{ minHeight: 26, marginTop: 16, fontSize: 15, fontWeight: 700 }}>
+      <div style={{ minHeight: 26, marginTop: 16, fontSize: "0.9375rem", fontWeight: 700 }}>
         {result && <span style={{ color: correct ? C.correct : C.danger }}>{correct ? "Correct!" : `It's ${q.answer[0]}`}</span>}
       </div>
       {result && <div style={{ display: "flex", gap: 10 }}>
@@ -271,7 +271,7 @@ const QUIZ_DURATION_LABELS = [
   [30000, '30 sec'], [60000, '1 min'], [120000, '2 min'], [240000, '4 min'], [0, 'Untimed'],
 ];
 const QUESTION_CHOICES = [5, 10, 15, 25, 50];
-const capStyle = { fontSize: 12, letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+const capStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
 
 function QuizClock({ endsAt }) {
   const [, tick] = useState(0);
@@ -314,7 +314,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
             {[['flag2country', 'Flag → Country'], ['country2flag', 'Country → Flag']].map(([m, label]) => (
               <Btn key={m} variant={g.mode === m ? "primary" : "ghost"}
                 onClick={() => isHost && send({ type: 'config', mode: m })}
-                style={{ padding: "8px 16px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{label}</Btn>
+                style={{ padding: "8px 16px", fontSize: "0.875rem", opacity: isHost ? 1 : .6 }}>{label}</Btn>
             ))}
           </div>
 
@@ -323,7 +323,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
             {QUESTION_CHOICES.map((n) => (
               <Btn key={n} variant={g.questionCount === n ? "primary" : "ghost"}
                 onClick={() => isHost && send({ type: 'config', questionCount: n })}
-                style={{ padding: "8px 18px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{n}</Btn>
+                style={{ padding: "8px 18px", fontSize: "0.875rem", opacity: isHost ? 1 : .6 }}>{n}</Btn>
             ))}
           </div>
 
@@ -332,18 +332,18 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
             {QUIZ_DURATION_LABELS.map(([ms, label]) => (
               <Btn key={ms} variant={g.durationMs === ms ? "primary" : "ghost"}
                 onClick={() => isHost && send({ type: 'config', durationMs: ms })}
-                style={{ padding: "8px 16px", fontSize: 14, opacity: isHost ? 1 : .6 }}>{label}</Btn>
+                style={{ padding: "8px 16px", fontSize: "0.875rem", opacity: isHost ? 1 : .6 }}>{label}</Btn>
             ))}
           </div>
         </div>
 
-        <div style={{ fontSize: 14, color: C.dim, marginBottom: 14 }}>
+        <div style={{ fontSize: "0.875rem", color: C.dim, marginBottom: 14 }}>
           {room.players.length === 1 ? 'Nobody else here yet.' : `Here: ${room.players.map((p) => p.name).join(', ')}`}
         </div>
         {isHost
           ? <Btn disabled={room.players.length < 2} style={{ opacity: room.players.length < 2 ? .5 : 1 }}
               onClick={() => send({ type: 'start' })}>Start quiz</Btn>
-          : <div style={{ fontSize: 14, color: C.dim }}>Waiting for the host to start…</div>}
+          : <div style={{ fontSize: "0.875rem", color: C.dim }}>Waiting for the host to start…</div>}
         <Btn variant="subtle" style={{ marginTop: 16 }} onClick={() => navigate('flags')}>Leave room</Btn>
       </Centered>
     );
@@ -381,11 +381,11 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
             const won = (g.winners ?? []).includes(p.id);
             return (
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "12px 16px", borderRadius: 12, fontSize: 15,
+                padding: "12px 16px", borderRadius: 12, fontSize: "0.9375rem",
                 background: won ? C.panel2 : C.panel, border: `2px solid ${won ? C.correct : 'transparent'}` }}>
                 <span style={{ fontWeight: 700 }}>{p.name}{p.id === playerId ? ' (you)' : ''}</span>
                 <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  {!prog.finishedAt && <span style={{ fontSize: 12, color: C.danger, fontWeight: 700 }}>{unfinishedLabel}</span>}
+                  {!prog.finishedAt && <span style={{ fontSize: "0.75rem", color: C.danger, fontWeight: 700 }}>{unfinishedLabel}</span>}
                   <b style={{ color: C.accent2 }}>{prog.correct}/{g.questionCount}</b>
                 </span>
               </div>
@@ -410,7 +410,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
     <Centered>
       <RoomStatus status={status} error={error} />
 
-      <div style={{ display: "flex", gap: 16, fontSize: 13, color: C.dim, marginBottom: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 16, fontSize: "0.8125rem", color: C.dim, marginBottom: 12, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
         <span>Question {Math.min((mine?.index ?? 0) + 1, g.questionCount)} of {g.questionCount}</span>
         <span style={{ color: C.accent2, fontWeight: 700 }}>{mine?.correct ?? 0} right</span>
         <QuizClock endsAt={g.endsAt} />
@@ -421,7 +421,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
         {room.players.filter((p) => p.id !== playerId).map((p) => {
           const prog = g.progress[p.id] ?? { index: 0, correct: 0 };
           return (
-            <span key={p.id} style={{ fontSize: 12, background: C.panel, borderRadius: 20, padding: "4px 12px", color: C.dim }}>
+            <span key={p.id} style={{ fontSize: "0.75rem", background: C.panel, borderRadius: 20, padding: "4px 12px", color: C.dim }}>
               {p.name} {prog.finishedAt ? '✓ done' : `${prog.index}/${g.questionCount}`}
             </span>
           );
@@ -430,7 +430,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
 
       {/* Untimed, so nothing will end the quiz if somebody stops answering. */}
       {isHost && !g.endsAt && (
-        <Btn variant="ghost" style={{ marginBottom: 14, padding: "7px 16px", fontSize: 13 }}
+        <Btn variant="ghost" style={{ marginBottom: 14, padding: "7px 16px", fontSize: "0.8125rem" }}
           onClick={() => send({ type: 'move', action: 'endNow' })}>End quiz now</Btn>
       )}
 
@@ -443,7 +443,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
         </>
       ) : question ? (
         <>
-          <div style={{ height: 20, marginBottom: 8, fontSize: 13, fontWeight: 700 }}>
+          <div style={{ height: 20, marginBottom: 8, fontSize: "0.8125rem", fontWeight: 700 }}>
             {lastAnswer && (lastAnswer.correct
               ? <span style={{ color: C.correct }}>Correct</span>
               : <span style={{ color: C.danger }}>Wrong</span>)}
@@ -455,13 +455,13 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%", maxWidth: 460 }}>
                 {question.options.map((opt) => (
                   <TileBtn key={opt[1]} onClick={() => send({ type: 'move', index: mine.index, code: opt[1] })}
-                    style={{ padding: "16px 12px", fontSize: 16, fontWeight: 700 }}>{opt[0]}</TileBtn>
+                    style={{ padding: "16px 12px", fontSize: "1rem", fontWeight: 700 }}>{opt[0]}</TileBtn>
                 ))}
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 28, fontWeight: 700, marginBottom: 22 }}>
+              <div style={{ fontFamily: "var(--font-head)", fontSize: "1.75rem", fontWeight: 700, marginBottom: 22 }}>
                 {question.prompt}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, width: "100%", maxWidth: 460 }}>
