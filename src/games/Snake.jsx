@@ -77,7 +77,13 @@ export default function Snake() {
     const dir = DIRS[name];
     if (!dir) return;
     setG((prev) => {
-      if (prev.status === "ready") return { ...prev, status: "running", queue: [dir] };
+      /* The opening move sets the direction outright rather than queueing it.
+         Queueing sent it through the no-reversing rule, which is measured
+         against the default heading of right — so pressing left to start was
+         discarded as a 180 and the snake set off rightwards on its own. A
+         one-segment snake has no neck to reverse into, so every direction is
+         legal here. */
+      if (prev.status === "ready") return { ...prev, status: "running", dir, queue: [] };
       if (prev.status !== "running") return prev;
       // Two buffered turns is plenty; more just makes the snake feel remote.
       if (prev.queue.length >= 2) return prev;
@@ -309,10 +315,13 @@ function Overlay({ status, score, best, onAgain, onMenu, onResume }) {
     : status === "paused" ? "Paused" : "Ready";
   const beat = status === "dead" && score > 0 && score >= best;
   return (
+    /* Above the segments. They carry a z-index of their own so the head draws
+       over the body, and without one here the snake sat on top of the message
+       — which at the start is exactly where it begins, dead centre. */
     <div className="snake-overlay" style={{
-      position: "absolute", inset: 0, display: "grid", placeItems: "center",
-      background: "color-mix(in srgb, var(--c-panel) 82%, transparent)",
-      backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)", padding: 18, textAlign: "center",
+      position: "absolute", inset: 0, zIndex: 6, display: "grid", placeItems: "center",
+      background: "color-mix(in srgb, var(--c-panel) 88%, transparent)",
+      backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", padding: 18, textAlign: "center",
     }}>
       <div>
         <div style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: 27, fontWeight: 700, marginBottom: 4 }}>{title}</div>

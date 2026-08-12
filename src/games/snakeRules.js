@@ -17,10 +17,16 @@ export const CELLS = SIZE * SIZE;
    225" is the number everyone expects and it is not achievable. */
 export const MAX_SCORE = CELLS - 1;
 
+/* `ms` is the gap between moves, so a bigger number is a slower snake.
+
+   These were far too quick on every setting: the first pass treated the old
+   Hard as the ceiling, when in practice even the old Easy was faster than a
+   person can plan a turn on a 15-wide board. The whole scale moved down, and
+   the new Hard is a shade gentler than the old Easy was. */
 export const SPEEDS = [
-  { key: "easy", name: "Easy", blurb: "A steady pace to learn on", ms: 175 },
-  { key: "medium", name: "Medium", blurb: "A bit faster", ms: 110 },
-  { key: "hard", name: "Hard", blurb: "Very, very fast", ms: 62 },
+  { key: "easy", name: "Easy", blurb: "A steady pace to learn on", ms: 320 },
+  { key: "medium", name: "Medium", blurb: "A bit faster", ms: 240 },
+  { key: "hard", name: "Hard", blurb: "Quick — you have to plan ahead", ms: 185 },
 ];
 
 export const DIRS = {
