@@ -13,6 +13,84 @@ import { GAMES } from './games.js';
 
 const MAX_IDLE_MS = 30 * 60 * 1000;   // rooms are forgotten after half an hour of silence
 const GRACE_MS = 90 * 1000;           // a dropped player keeps their seat this long
+const LISTING_STALE_MS = 2 * 60 * 1000;  // a listing nobody has refreshed is presumed dead
+const MAX_LISTED = 60;                   // a browse list longer than this helps nobody
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET,OPTIONS',
+  'access-control-allow-headers': 'content-type',
+};
+
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json', ...CORS },
+  });
+
+/* ============================= THE DIRECTORY =============================
+   A single Durable Object listing rooms that are open to join.
+
+   It exists because Durable Objects cannot see one another: each room is its
+   own isolated object, so "show me the open rooms" has no answer unless
+   somebody keeps a list. Rooms announce themselves here whenever their player
+   count or status changes, and withdraw when they start, empty or expire.
+
+   The list is advisory, never authoritative. A room can fill or start in the
+   moment between listing and tapping it, so joining still goes through the
+   room itself and can still be refused. Entries are also pruned on read: a
+   room that dies without withdrawing (an eviction, a crash) would otherwise
+   sit in the list forever. */
+export class Directory {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+
+  async rooms() {
+    return (await this.ctx.storage.get('rooms')) ?? {};
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/announce') {
+      const entry = await request.json();
+      const rooms = await this.rooms();
+      rooms[entry.code] = { ...entry, updatedAt: Date.now() };
+      await this.ctx.storage.put('rooms', rooms);
+      return json({ ok: true });
+    }
+
+    if (url.pathname === '/withdraw') {
+      const { code } = await request.json();
+      const rooms = await this.rooms();
+      delete rooms[code];
+      await this.ctx.storage.put('rooms', rooms);
+      return json({ ok: true });
+    }
+
+    if (url.pathname === '/list') {
+      const gameId = url.searchParams.get('gameId');
+      const rooms = await this.rooms();
+      const now = Date.now();
+      let pruned = false;
+
+      const open = [];
+      for (const [code, entry] of Object.entries(rooms)) {
+        if (now - entry.updatedAt > LISTING_STALE_MS) { delete rooms[code]; pruned = true; continue; }
+        if (gameId && entry.gameId !== gameId) continue;
+        if (entry.status !== 'lobby' || entry.players >= entry.max) continue;
+        open.push(entry);
+      }
+      if (pruned) await this.ctx.storage.put('rooms', rooms);
+
+      open.sort((a, b) => b.updatedAt - a.updatedAt);
+      return json({ rooms: open.slice(0, MAX_LISTED) });
+    }
+
+    return json({ error: 'not found' }, 404);
+  }
+}
 
 export class Room {
   constructor(ctx, env) {
@@ -46,16 +124,57 @@ export class Room {
     await this.ctx.storage.setAlarm(roundAt ? Math.min(idleAt, roundAt) : idleAt);
   }
 
-  fresh(code, gameId) {
+  fresh(code, gameId, visibility) {
     return {
       code,
       gameId,
       hostId: null,
+      visibility: visibility === 'private' ? 'private' : 'public',
       status: 'lobby',                // lobby | playing | over
       players: [],                    // { id, name, seat, connected, lastSeen }
       game: GAMES[gameId].create(),
       updatedAt: Date.now(),
     };
+  }
+
+  /* Keep the browse list in step. Called after anything that changes what a
+     would-be joiner needs to know: who is hosting, how full it is, whether it
+     has started. A room that has started, emptied or ended withdraws itself,
+     because listing a room nobody can join is worse than listing nothing. */
+  async announce(room) {
+    const live = room.players.filter((p) => p.connected).length;
+    const joinable = room.status === 'lobby' && live > 0;
+    try {
+      /* Resolving the binding is inside the try on purpose. If DIRECTORY is
+         missing — an un-run migration, an older deploy, a test harness that
+         does not bind it — this throws, and a throw out here would take the
+         whole join handler down with it. Rooms must keep working over their
+         code even with no directory at all. */
+      const stub = this.env.DIRECTORY.get(this.env.DIRECTORY.idFromName('v1'));
+      if (!joinable) {
+        await stub.fetch('https://directory/withdraw', {
+          method: 'POST',
+          body: JSON.stringify({ code: room.code }),
+        });
+        return;
+      }
+      const host = room.players.find((p) => p.id === room.hostId);
+      await stub.fetch('https://directory/announce', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: room.code,
+          gameId: room.gameId,
+          host: host?.name ?? 'Someone',
+          players: room.players.length,
+          max: GAMES[room.gameId].maxPlayers,
+          visibility: room.visibility ?? 'public',
+          status: room.status,
+        }),
+      });
+    } catch {
+      /* The directory is a convenience. If it is unreachable the room still
+         works perfectly over its code — never let this break a game. */
+    }
   }
 
   /* --------------------------- broadcasting --------------------------- */
@@ -88,7 +207,18 @@ export class Room {
     if (msg.type === 'join') {
       const gameId = msg.gameId;
       if (!GAMES[gameId]) return this.sendTo(ws, { type: 'error', message: 'Unknown game.' });
-      if (!room) room = this.fresh(msg.code, gameId);
+
+      /* Hosting and joining are different acts now. Only a host creates; a
+         joiner attaching to a code that does not exist is told so, rather than
+         being dropped into an empty room of their own making — which is what
+         used to happen to anyone who mistyped a code. */
+      if (!room) {
+        if (!msg.create) {
+          return this.sendTo(ws, { type: 'error', code: 'not-found', message: 'No room found with that code.' });
+        }
+        room = this.fresh(msg.code, gameId, msg.visibility);
+      }
+
       if (room.gameId !== gameId) {
         return this.sendTo(ws, { type: 'error', message: 'That room code is being used by another game.' });
       }
@@ -127,6 +257,7 @@ export class Room {
       }
 
       await this.save(room);
+      await this.announce(room);
       return this.broadcast(room);
     }
 
@@ -144,6 +275,14 @@ export class Room {
       }
       room.status = 'playing';
       room.game = def.start(room, room.game);     // whatever the host chose in the lobby
+    }
+
+    /* The host can flip the room between listed and code-only at any point in
+       the lobby, so the choice sits next to the code rather than being locked
+       in before they have seen it. */
+    else if (msg.type === 'visibility') {
+      if (room.hostId !== me.id) return this.sendTo(ws, { type: 'error', message: 'Only the host can change that.' });
+      room.visibility = msg.visibility === 'private' ? 'private' : 'public';
     }
 
     else if (msg.type === 'config') {
@@ -180,6 +319,7 @@ export class Room {
     }
 
     await this.save(room);
+    await this.announce(room);
     this.broadcast(room);
   }
 
@@ -204,6 +344,7 @@ export class Room {
       if (heir) room.hostId = heir.id;
     }
     await this.save(room);
+    await this.announce(room);
     this.broadcast(room);
   }
 
@@ -228,6 +369,9 @@ export class Room {
     }
 
     if (now - room.updatedAt >= MAX_IDLE_MS) {
+      // Take it out of the browse list before the state it was listed from is
+      // gone, or it lingers there until the staleness sweep catches it.
+      await this.announce({ ...room, status: 'over', players: [] });
       await this.ctx.storage.deleteAll();
       for (const ws of this.ctx.getWebSockets()) {
         try { ws.close(1000, 'Room expired'); } catch { /* ignore */ }
@@ -242,8 +386,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
     if (url.pathname === '/health') {
       return new Response('ok', { headers: { 'access-control-allow-origin': '*' } });
+    }
+
+    /* The browse list. Plain HTTP rather than the websocket, because a player
+       reading it has not joined anything yet — opening a room socket just to
+       ask what rooms exist would create the very rooms being asked about. */
+    if (url.pathname === '/rooms') {
+      const stub = env.DIRECTORY.get(env.DIRECTORY.idFromName('v1'));
+      const gameId = url.searchParams.get('gameId') ?? '';
+      return stub.fetch(`https://directory/list?gameId=${encodeURIComponent(gameId)}`);
     }
 
     const match = url.pathname.match(/^\/room\/([A-Z0-9]{6})$/);

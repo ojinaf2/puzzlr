@@ -14,7 +14,7 @@ export const CONTENT = {
     eyebrow: "A little arcade of quick games",
     headlineTop: "Play, guess,",
     headlineBottom: "and outsmart a friend.",
-    intro: "{count} hand-built games in one place. No sign-up, no timer pressure. Just open one and go.",
+    intro: "{count}No sign-up, no timer pressure. Just open one and go.",
     cardCta: "Play →",
     backToGames: "All games",
     footer: "{name} — a small collection of games. Built for fun.",
@@ -23,7 +23,7 @@ export const CONTENT = {
     wordle: {
       name: "Wordl Unlimited",
       tag: "Word guessing",
-      blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — the same word everyone else gets — then keep going with unlimited words. No sign-up.",
+      blurb: "Guess the five-letter word in six tries. Play today's daily puzzle — then keep going with unlimited words.",
       players: "1 player",
     },
     wavelength: {
@@ -35,7 +35,7 @@ export const CONTENT = {
     tictactoe: {
       name: "Tic-Tac-Toe",
       tag: "Classic 3-in-a-row",
-      blurb: "The classic three-in-a-row, for two players on one device or online with a friend. No sign-up, no apps.",
+      blurb: "The classic three-in-a-row, for two players on one device or online with a friend.",
       players: "2 players",
     },
     flags: {
@@ -53,7 +53,7 @@ export const CONTENT = {
     hangman: {
       name: "Hangman",
       tag: "Save the cowboy",
-      blurb: "Guess the word one letter at a time and save the cowboy. A new daily word for everyone, a bot to play against, or pass and play with friends.",
+      blurb: "Guess the word one letter at a time and save the cowboy. A new daily word  every day, a bot to play against, or pass and play with friends.",
       players: "1-6 players",
     },
     imposter: {
@@ -65,19 +65,19 @@ export const CONTENT = {
     snake: {
       name: "Snake",
       tag: "Eat, grow, don't crash",
-      blurb: "Guide the snake around a 15 by 15 board, eat apples and grow. Three speeds, from steady to very fast, and your best score is kept on your device.",
+      blurb: "Guide the snake around the board, eat apples and grow.",
       players: "1 player",
     },
     minesweeper: {
       name: "Minesweeper",
       tag: "Clear the board, dodge the mines",
-      blurb: "Uncover every safe square without hitting a mine. Three classic sizes from 9 by 9 up to 16 by 30, with a timer and your best time kept on your device.",
+      blurb: "Uncover every safe square without hitting a mine.",
       players: "1 player",
     },
   },
   intros: {
-    snake: "Eat apples, grow longer, and do not hit the wall or yourself. The board is {size} by {size}, so a perfect run is {max} apples.",
-    minesweeper: "Uncover every square that is not a mine. A number tells you how many of the eight squares around it are mined. Your first click is always safe.",
+    snake: "Eat apples, grow longer, and do not hit the wall or yourself. ",
+    minesweeper: "Uncover every square that is not a mine. ",
     minesweeperHint: "Right-click, or press and hold on a phone, to plant a flag. Tapping a number that already has all its flags opens the squares around it.",
     hangman: "Guess the word one letter at a time. Seven wrong guesses and the cowboy is done for.",
     snakeControls: "Arrow keys or WASD, swipe on the board, or use the pad. Space pauses.",

@@ -4,7 +4,7 @@ import { rand, shuffle } from '../shared/utils.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { COUNTRIES } from '../data/countries.js';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
+import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= FLAG QUIZ ============================= */
@@ -83,11 +83,17 @@ const suggestFor = (raw) => {
 };
 
 export default function FlagQuiz({ roomCode, navigate }) {
+  // Declared before the branch: a hook must run on every render.
+  const [online, setOnline] = useState(false);
   if (roomCode) return <OnlineFlagQuiz roomCode={roomCode} navigate={navigate} />;
-  return <LocalFlagQuiz navigate={navigate} />;
+  if (online) {
+    return <OnlineEntry gameId="flags" gameName="Flag Quiz" navigate={navigate}
+      onCancel={() => setOnline(false)} />;
+  }
+  return <LocalFlagQuiz navigate={navigate} onOnline={() => setOnline(true)} />;
 }
 
-function LocalFlagQuiz({ navigate }) {
+function LocalFlagQuiz({ navigate, onOnline }) {
   const [mode, setMode] = useState(null); // "flag2country" | "country2flag"
   const [difficulty, setDifficulty] = useState("easy"); // "easy" | "hard"
   const [q, setQ] = useState(null);
@@ -173,7 +179,7 @@ function LocalFlagQuiz({ navigate }) {
         <Btn onClick={() => start("country2flag")} variant="ghost">Country → Flag</Btn>
       </div>
       {roomServerUrl() && (
-        <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => navigate('flags', makeRoomCode())}>
+        <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => onOnline()}>
           Race friends online
         </Btn>
       )}
@@ -293,7 +299,7 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
   const [name, setName] = useState(() => savedName());
   const { status, room, me, playerId, error, send } = useRoom({ gameId: 'flagquiz', roomCode, name });
 
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'flags', navigate, name, onName: setName, skipLobby: true });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'flags', navigate, name, onName: setName, send, skipLobby: true });
   if (lobby) return lobby;
 
   const g = room.game;
@@ -306,7 +312,8 @@ function OnlineFlagQuiz({ roomCode, navigate }) {
       <Centered>
         <h2 style={hStyle}>Flag Quiz race</h2>
         <p style={pStyle}>Same questions, one clock. Most right wins — but you have to finish.</p>
-        <InviteLink gameId="flags" roomCode={roomCode} />
+        <InviteLink gameId="flags" roomCode={roomCode} visibility={room?.visibility}
+          onVisibility={me && room?.hostId === me.id ? (v) => send({ type: 'visibility', visibility: v }) : undefined} />
 
         <div style={{ width: "100%", maxWidth: 420, marginTop: 26, textAlign: "left" }}>
           <div style={{ ...capStyle, marginBottom: 8 }}>Mode</div>

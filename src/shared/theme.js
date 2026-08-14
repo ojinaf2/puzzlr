@@ -15,19 +15,39 @@ import { useSyncExternalStore } from 'react';
    literal colours only — the per-game accents in the registry, mostly. */
 
 const LIGHT = {
-  bg: "#ffffff", panel: "#f7ecd9", panel2: "#f0ddc0", line: "#e2cba6",
-  text: "#4a3524", dim: "#8a6d52",
-  correct: "#6aaa64", present: "#c9973f", absent: "#b79b7e", key: "#e0be93",
-  accent: "#b5651d", accent2: "#a0522d", danger: "#c0492f", gold: "#c9973f",
+  bg: "#ffffff",
+  panel: "#f7ecd9",
+  panel2: "#f0ddc0",
+  line: "#e2cba6",
+  text: "#4a3524",
+  dim: "#8a6d52",
+  correct: "#6aaa64",
+  present: "#c9973f",
+  absent: "#b79b7e",
+  key: "#e0be93",
+  accent: "#b5651d",
+  accent2: "#a0522d",
+  danger: "#c0492f",
+  gold: "#c9973f",
 };
 
 /* Warm near-black rather than grey. A neutral dark theme would throw away the
    thing that makes the light one recognisable. */
 const DARK = {
-  bg: "#16110c", panel: "#231a12", panel2: "#2e2318", line: "#3b2e20",
-  text: "#f2e6d4", dim: "#ac9070",
-  correct: "#5f9d59", present: "#bf8f3a", absent: "#4e3f30", key: "#41321f",
-  accent: "#c9762e", accent2: "#b0602a", danger: "#cf5741", gold: "#d1a24a",
+  bg: "#16110c",
+  panel: "#231a12",
+  panel2: "#2e2318",
+  line: "#3b2e20",
+  text: "#f2e6d4",
+  dim: "#ac9070",
+  correct: "#5f9d59",
+  present: "#bf8f3a",
+  absent: "#4e3f30",
+  key: "#41321f",
+  accent: "#c9762e",
+  accent2: "#b0602a",
+  danger: "#cf5741",
+  gold: "#d1a24a",
 };
 
 export const THEMES = { light: LIGHT, dark: DARK };

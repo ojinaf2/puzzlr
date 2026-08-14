@@ -4,16 +4,22 @@ import { rand } from '../shared/utils.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { SPECTRA, scoreForGuess as sharedScore } from '../data/spectra.js';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
+import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= WAVELENGTH ============================= */
 export default function Wavelength({ roomCode, navigate }) {
+  // Declared before the branch: a hook must run on every render.
+  const [online, setOnline] = useState(false);
   if (roomCode) return <OnlineWavelength roomCode={roomCode} navigate={navigate} />;
-  return <LocalWavelength navigate={navigate} />;
+  if (online) {
+    return <OnlineEntry gameId="wavelength" gameName="Wavelength" navigate={navigate}
+      onCancel={() => setOnline(false)} />;
+  }
+  return <LocalWavelength navigate={navigate} onOnline={() => setOnline(true)} />;
 }
 
-function LocalWavelength({ navigate }) {
+function LocalWavelength({ navigate, onOnline }) {
   const [phase, setPhase] = useState("intro"); // intro, clue, guess, reveal
   const [spectrum, setSpectrum] = useState(SPECTRA[0]);
   const [target, setTarget] = useState(50);
@@ -51,7 +57,7 @@ function LocalWavelength({ navigate }) {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Start</Btn>
         {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => navigate('wavelength', makeRoomCode())}>Play online with friends</Btn>
+          <Btn variant="subtle" onClick={() => onOnline()}>Play online with friends</Btn>
         )}
       </div>
     </Centered>
@@ -175,7 +181,7 @@ function OnlineWavelength({ roomCode, navigate }) {
   const [clueDraft, setClueDraft] = useState("");
   const [dial, setDial] = useState(50);
 
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'wavelength', navigate, name, onName: setName, skipLobby: true });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'wavelength', navigate, name, onName: setName, send, skipLobby: true });
   if (lobby) return lobby;
 
   const g = room.game;
@@ -190,7 +196,8 @@ function OnlineWavelength({ roomCode, navigate }) {
           Everyone takes a turn giving a one-word clue for a target only they can see.
           The closer people land, the more you all score.
         </p>
-        <InviteLink gameId="wavelength" roomCode={roomCode} />
+        <InviteLink gameId="wavelength" roomCode={roomCode} visibility={room?.visibility}
+          onVisibility={me && room?.hostId === me.id ? (v) => send({ type: 'visibility', visibility: v }) : undefined} />
 
         <div style={{ ...capStyle, marginTop: 24, marginBottom: 10 }}>In the room ({room.players.length}/7)</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 18, maxWidth: 400 }}>

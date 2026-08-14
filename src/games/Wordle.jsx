@@ -4,7 +4,7 @@ import { rand } from '../shared/utils.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { validSet, answerList } from '../data/words.js';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, InviteLink } from '../shared/online.jsx';
+import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { ModeTabs, DailyPanel } from '../shared/dailyUi.jsx';
@@ -22,8 +22,14 @@ const scoreGuess = (guess, answer) => {
 const KEYS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 
 export default function Wordle({ roomCode, navigate }) {
+  // Declared before the branch: a hook must run on every render.
+  const [online, setOnline] = useState(false);
   if (roomCode) return <OnlineWordle roomCode={roomCode} navigate={navigate} />;
-  return <LocalWordle navigate={navigate} />;
+  if (online) {
+    return <OnlineEntry gameId="wordle" gameName="Wordl Unlimited" navigate={navigate}
+      onCancel={() => setOnline(false)} />;
+  }
+  return <LocalWordle navigate={navigate} onOnline={() => setOnline(true)} />;
 }
 
 const DAILY_ID = "wordle";
@@ -33,7 +39,7 @@ const EMOJI = { correct: "🟩", present: "🟨", absent: "⬜" };
    single board. The board itself is remounted whenever that changes, which is
    what `key` is doing below — it saves having to reset eight pieces of state
    by hand every time the player switches mode or asks for another word. */
-function LocalWordle({ navigate }) {
+function LocalWordle({ navigate, onOnline }) {
   const day = todayNumber();
   const [mode, setMode] = useState("daily");
   const [record, setRecord] = useState(() => todaysRecord(DAILY_ID, day));
@@ -85,7 +91,7 @@ function LocalWordle({ navigate }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
         {finished && <Btn onClick={() => setMode("practice")}>Keep playing</Btn>}
         {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => navigate('wordle', makeRoomCode())}>Race a friend online</Btn>
+          <Btn variant="subtle" onClick={() => onOnline()}>Race a friend online</Btn>
         )}
       </div>
     </div>
@@ -334,7 +340,7 @@ function OnlineWordle({ roomCode, navigate }) {
   const roundNo = room?.game?.roundNo;
   useEffect(() => { setCurrent(""); }, [roundNo]);
 
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'wordle', navigate, name, onName: setName, skipLobby: true });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'wordle', navigate, name, onName: setName, send, skipLobby: true });
   if (lobby) return lobby;
 
   const g = room.game;
@@ -347,7 +353,8 @@ function OnlineWordle({ roomCode, navigate }) {
       <Centered>
         <h2 style={hStyle}>Word race</h2>
         <p style={pStyle}>Same word, both of you at once. First to solve it wins the round.</p>
-        <InviteLink gameId="wordle" roomCode={roomCode} />
+        <InviteLink gameId="wordle" roomCode={roomCode} visibility={room?.visibility}
+          onVisibility={me && room?.hostId === me.id ? (v) => send({ type: 'visibility', visibility: v }) : undefined} />
 
         <div style={{ marginTop: 26, marginBottom: 8, fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 }}>
           Round length

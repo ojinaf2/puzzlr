@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView } from '../shared/online.jsx';
+import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= TIC-TAC-TOE =============================
@@ -32,12 +32,18 @@ function Board({ board, winLine, winnerMark, onPlay, disabled }) {
 }
 
 export default function TicTacToe({ roomCode, navigate }) {
+  // Declared before the branch: a hook must run on every render.
+  const [online, setOnline] = useState(false);
   if (roomCode) return <OnlineTicTacToe roomCode={roomCode} navigate={navigate} />;
-  return <LocalTicTacToe navigate={navigate} />;
+  if (online) {
+    return <OnlineEntry gameId="tictactoe" gameName="Tic-Tac-Toe" navigate={navigate}
+      onCancel={() => setOnline(false)} />;
+  }
+  return <LocalTicTacToe navigate={navigate} onOnline={() => setOnline(true)} />;
 }
 
 /* ------------------------------ same device ------------------------------ */
-function LocalTicTacToe({ navigate }) {
+function LocalTicTacToe({ navigate, onOnline }) {
   const [board, setBoard] = useState(Array(9).fill(null));
   const [xNext, setXNext] = useState(true);
   const [wins, setWins] = useState({ X: 0, O: 0 });
@@ -65,7 +71,7 @@ function LocalTicTacToe({ navigate }) {
         <Btn onClick={reset} variant="ghost">{winner || full ? "Play again" : "Reset board"}</Btn>
         {/* Hidden until a room server is configured, so nobody is sent to a dead end. */}
         {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => navigate('tictactoe', makeRoomCode())}>Play online instead</Btn>
+          <Btn variant="subtle" onClick={() => onOnline()}>Play online instead</Btn>
         )}
       </div>
     </Centered>
@@ -78,7 +84,7 @@ function OnlineTicTacToe({ roomCode, navigate }) {
   const { status, room, me, playerId, error, send } = useRoom({ gameId: 'tictactoe', roomCode, name });
 
   // Every hook has run by now, so it is safe to bail out into a waiting screen.
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'tictactoe', navigate, name, onName: setName });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'tictactoe', navigate, name, onName: setName, send });
   if (lobby) return lobby;
 
   const g = room.game;

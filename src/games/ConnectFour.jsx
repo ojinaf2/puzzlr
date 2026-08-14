@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, Centered } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView } from '../shared/online.jsx';
+import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= CONNECT 4 =============================
@@ -45,8 +45,14 @@ const c4Style = `
 `;
 
 export default function ConnectFour({ roomCode, navigate }) {
+  // Declared before the branch: a hook must run on every render.
+  const [online, setOnline] = useState(false);
   if (roomCode) return <OnlineConnectFour roomCode={roomCode} navigate={navigate} />;
-  return <LocalConnectFour navigate={navigate} />;
+  if (online) {
+    return <OnlineEntry gameId="connect4" gameName="Connect 4" navigate={navigate}
+      onCancel={() => setOnline(false)} />;
+  }
+  return <LocalConnectFour navigate={navigate} onOnline={() => setOnline(true)} />;
 }
 
 /* The board itself, shared by both modes. It knows nothing about whose turn it
@@ -126,7 +132,7 @@ function C4Board({ board, lastMove, winLine, onDrop, disabled, turnColour }) {
 }
 
 /* ------------------------------ same device ------------------------------ */
-function LocalConnectFour({ navigate }) {
+function LocalConnectFour({ navigate, onOnline }) {
   const [board, setBoard] = useState(() => Array(ROWS * COLS).fill(null));
   const [redNext, setRedNext] = useState(true);
   const [wins, setWins] = useState({ R: 0, Y: 0 });
@@ -176,7 +182,7 @@ function LocalConnectFour({ navigate }) {
       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={reset} variant="ghost">{winner || full ? "Play again" : "Reset board"}</Btn>
         {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => navigate('connect4', makeRoomCode())}>Play online instead</Btn>
+          <Btn variant="subtle" onClick={() => onOnline()}>Play online instead</Btn>
         )}
       </div>
     </Centered>
@@ -188,7 +194,7 @@ function OnlineConnectFour({ roomCode, navigate }) {
   const [name, setName] = useState(() => savedName());
   const { status, room, me, playerId, error, send } = useRoom({ gameId: 'connect4', roomCode, name });
 
-  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'connect4', navigate, name, onName: setName });
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'connect4', navigate, name, onName: setName, send });
   if (lobby) return lobby;
 
   const g = room.game;

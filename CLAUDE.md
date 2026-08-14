@@ -244,3 +244,38 @@ account, no history beyond the current device.
 Note that ads would make the site commercial, which Vercel's free Hobby plan
 does not allow — that would mean $20/month, which is why it has been left
 alone.
+
+## Hosting and joining
+
+Online games start at a Host / Join screen (`OnlineEntry` in `shared/online.jsx`),
+not by inventing a code. The two are genuinely different acts on the server:
+
+- **Host** sends `create: true` and a `visibility`. Only that creates a room.
+- **Join** sends neither. A code with no room behind it comes back as
+  `{ type: 'error', code: 'not-found' }` rather than quietly making one — which
+  is what used to happen to anyone who mistyped a code.
+
+`shared/rooms.js` performs the join over a throwaway socket *before* navigating,
+which is what lets "No room found" appear on the form next to the box you typed
+in. Re-joining is free: the seat is keyed by player id.
+
+The intent is remembered in memory per code, because it matters on every
+reconnect — a host whose socket drops before anyone arrives must still be
+allowed to recreate the room, and a joiner must never create one.
+
+### The Directory object
+
+Durable Objects cannot see each other, so a second one (`Directory`, a single
+instance) keeps the list of rooms open to join. Rooms announce themselves on
+every change and withdraw when they start, empty or expire.
+
+- It is **advisory only**. A room can fill between being listed and being
+  tapped, so joining still goes through the room and can still be refused.
+- Resolving the `DIRECTORY` binding is inside a try/catch on purpose. If it is
+  missing — un-run migration, older deploy, a test harness that does not bind
+  it — rooms must keep working over their codes regardless.
+- Private rooms **are** listed, marked with a lock, but cannot be joined from
+  the list. Worth knowing this leaks the host's name and that a room exists.
+  If that is unwanted, filter them out in `Directory`'s `/list`.
+
+Adding it needed a wrangler migration (`v2`). Both deploy targets, as always.

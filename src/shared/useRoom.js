@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getIntent } from './rooms.js';
 
 /* ============================= ROOM CONNECTION =============================
    Talks to the Durable Object that runs a room. The server is the referee, so
@@ -38,6 +39,8 @@ export function useRoom({ gameId, roomCode, name }) {
   const [status, setStatus] = useState('connecting');
   const [room, setRoom] = useState(null);
   const [error, setError] = useState(null);
+  // Kept beside the message so callers can branch without matching prose.
+  const [errorCode, setErrorCode] = useState(null);
   const wsRef = useRef(null);
   const attemptRef = useRef(0);
   const closedRef = useRef(false);
@@ -63,7 +66,11 @@ export function useRoom({ gameId, roomCode, name }) {
         attemptRef.current = 0;
         setStatus('open');
         setError(null);
-        ws.send(JSON.stringify({ type: 'join', code: roomCode, gameId, playerId, name }));
+        /* The intent matters on every reconnect, not just the first join: a
+           host whose socket drops before anyone else arrives must still be
+           allowed to recreate the room, while a joiner must never create one. */
+        const intent = getIntent(roomCode);
+        ws.send(JSON.stringify({ type: 'join', code: roomCode, gameId, playerId, name, ...intent }));
         // Keeps intermediaries from culling an idle socket mid-game.
         heartbeat = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
@@ -73,8 +80,8 @@ export function useRoom({ gameId, roomCode, name }) {
       ws.onmessage = (e) => {
         let msg;
         try { msg = JSON.parse(e.data); } catch { return; }
-        if (msg.type === 'state') { setRoom(msg.room); setError(null); }
-        else if (msg.type === 'error') setError(msg.message);
+        if (msg.type === 'state') { setRoom(msg.room); setError(null); setErrorCode(null); }
+        else if (msg.type === 'error') { setError(msg.message); setErrorCode(msg.code ?? null); }
       };
 
       ws.onclose = () => {
@@ -105,5 +112,5 @@ export function useRoom({ gameId, roomCode, name }) {
   }, []);
 
   const me = room?.players.find((p) => p.id === playerId) ?? null;
-  return { status, room, me, playerId, error, send };
+  return { status, room, me, playerId, error, errorCode, send };
 }

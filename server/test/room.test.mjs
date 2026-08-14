@@ -26,7 +26,10 @@ const script = bundled.outputFiles[0].text;
 const mf = new Miniflare({
   modules: true,
   script,
-  durableObjects: { ROOMS: { className: 'Room', useSQLite: true } },
+  durableObjects: {
+    ROOMS: { className: 'Room', useSQLite: true },
+    DIRECTORY: { className: 'Directory', useSQLite: true },
+  },
   compatibilityDate: '2025-06-01',
 });
 await mf.ready;
@@ -74,7 +77,7 @@ console.log('\n— two players join and the game auto-starts —');
 let a, b;
 {
   a = await connect('ABCD24');
-  a.send({ type: 'join', code: 'ABCD24', gameId: 'tictactoe', playerId: 'p-alice', name: 'Alice' });
+  a.send({ type: 'join', create: true, code: 'ABCD24', gameId: 'tictactoe', playerId: 'p-alice', name: 'Alice' });
   let s = await a.nextState();
   check('first player lands in the lobby', s.room.status === 'lobby', s.room.status);
   check('first player becomes host', s.room.hostId === 'p-alice');
@@ -171,7 +174,7 @@ console.log('\n— claiming a win is refused while the opponent is present —')
 console.log('\n— rooms are namespaced by code —');
 {
   const d = await connect('ZZZZZZ');
-  d.send({ type: 'join', code: 'ZZZZZZ', gameId: 'tictactoe', playerId: 'p-dave', name: 'Dave' });
+  d.send({ type: 'join', create: true, code: 'ZZZZZZ', gameId: 'tictactoe', playerId: 'p-dave', name: 'Dave' });
   const s = await d.nextState();
   check('a different code is a different room', s.room.players.length === 1, String(s.room.players.length));
   check('and it starts in its own lobby', s.room.status === 'lobby', s.room.status);
@@ -181,7 +184,7 @@ console.log('\n— rooms are namespaced by code —');
 console.log('\n— settings chosen in the lobby survive the start —');
 {
   const h = await connect('CFG123');
-  h.send({ type: 'join', code: 'CFG123', gameId: 'flagquiz', playerId: 'p-h', name: 'Host' });
+  h.send({ type: 'join', create: true, code: 'CFG123', gameId: 'flagquiz', playerId: 'p-h', name: 'Host' });
   await h.nextState();
   const g2 = await connect('CFG123');
   g2.send({ type: 'join', code: 'CFG123', gameId: 'flagquiz', playerId: 'p-g', name: 'Guest' });
@@ -202,7 +205,7 @@ console.log('\n— settings chosen in the lobby survive the start —');
 console.log('\n— the first game still opens with seat 0 —');
 {
   const p1 = await connect('SEAT01');
-  p1.send({ type: 'join', code: 'SEAT01', gameId: 'tictactoe', playerId: 'p-1', name: 'One' });
+  p1.send({ type: 'join', create: true, code: 'SEAT01', gameId: 'tictactoe', playerId: 'p-1', name: 'One' });
   await p1.nextState();
   const p2 = await connect('SEAT01');
   p2.send({ type: 'join', code: 'SEAT01', gameId: 'tictactoe', playerId: 'p-2', name: 'Two' });
@@ -215,7 +218,7 @@ console.log('\n— the first game still opens with seat 0 —');
 console.log('\n— a room survives its creator dropping out —');
 {
   const host = await connect('LOBBY1');
-  host.send({ type: 'join', code: 'LOBBY1', gameId: 'tictactoe', playerId: 'p-host', name: 'Host' });
+  host.send({ type: 'join', create: true, code: 'LOBBY1', gameId: 'tictactoe', playerId: 'p-host', name: 'Host' });
   await host.nextState();
   host.close();                                   // sole occupant of the lobby vanishes
   await new Promise((r) => setTimeout(r, 300));
@@ -233,13 +236,65 @@ console.log('\n— a room survives its creator dropping out —');
 console.log('\n— a mismatched game id is rejected —');
 {
   const e = await connect('QQQQQQ');
-  e.send({ type: 'join', code: 'QQQQQQ', gameId: 'tictactoe', playerId: 'p-x' });
+  e.send({ type: 'join', create: true, code: 'QQQQQQ', gameId: 'tictactoe', playerId: 'p-x' });
   await e.nextState();
   const f = await connect('QQQQQQ');
   f.send({ type: 'join', code: 'QQQQQQ', gameId: 'connect4', playerId: 'p-y' });
   const m = await f.next();
   check('joining with the wrong game is refused', m.type === 'error', JSON.stringify(m));
   e.close(); f.close();
+}
+
+
+console.log('\n— hosting, joining and the browse list —');
+{
+  // Joining a code nobody is hosting must say so, not quietly make a room.
+  const lost = await connect('NOPE01');
+  lost.send({ type: 'join', code: 'NOPE01', gameId: 'tictactoe', playerId: 'p-lost', name: 'Lost' });
+  const err = await lost.next();
+  check('an unknown code is refused', err.type === 'error' && err.code === 'not-found', JSON.stringify(err));
+  lost.close();
+
+  // ...and refusing it must not have created one as a side effect.
+  const again = await connect('NOPE01');
+  again.send({ type: 'join', code: 'NOPE01', gameId: 'tictactoe', playerId: 'p-l2', name: 'Lost2' });
+  const err2 = await again.next();
+  check('and no room was created by the attempt', err2.code === 'not-found', JSON.stringify(err2));
+  again.close();
+
+  // A public host appears in the browse list.
+  const host = await connect('PUB001');
+  host.send({ type: 'join', create: true, visibility: 'public', code: 'PUB001', gameId: 'connect4', playerId: 'p-ph', name: 'Ada' });
+  await host.nextState();
+
+  const listed = await (await mf.dispatchFetch('http://x/rooms?gameId=connect4')).json();
+  const mine = listed.rooms.find((r) => r.code === 'PUB001');
+  check('a hosted room is listed', !!mine, JSON.stringify(listed));
+  check('listed with the host name', mine && mine.host === 'Ada', mine && mine.host);
+  check('listed with the player count', mine && mine.players === 1, String(mine && mine.players));
+  check('listed with its capacity', mine && mine.max === 2, String(mine && mine.max));
+  check('listed as public', mine && mine.visibility === 'public', mine && mine.visibility);
+
+  // A private room is listed too, but flagged, so the UI can show a lock.
+  const priv = await connect('PRV001');
+  priv.send({ type: 'join', create: true, visibility: 'private', code: 'PRV001', gameId: 'connect4', playerId: 'p-pr', name: 'Grace' });
+  await priv.nextState();
+  const l2 = await (await mf.dispatchFetch('http://x/rooms?gameId=connect4')).json();
+  const p2 = l2.rooms.find((r) => r.code === 'PRV001');
+  check('a private room is flagged private', p2 && p2.visibility === 'private', p2 && p2.visibility);
+
+  // The list is per game.
+  const other = await (await mf.dispatchFetch('http://x/rooms?gameId=wordle')).json();
+  check('the list is filtered by game', !other.rooms.some((r) => r.code === 'PUB001'), JSON.stringify(other.rooms));
+
+  // Someone joins the public room by code; it fills and drops off the list.
+  const guest = await connect('PUB001');
+  guest.send({ type: 'join', code: 'PUB001', gameId: 'connect4', playerId: 'p-g2', name: 'Bob' });
+  await guest.nextState();
+  const l3 = await (await mf.dispatchFetch('http://x/rooms?gameId=connect4')).json();
+  check('a full room leaves the list', !l3.rooms.some((r) => r.code === 'PUB001'), JSON.stringify(l3.rooms));
+
+  host.close(); guest.close(); priv.close();
 }
 
 await mf.dispose();
