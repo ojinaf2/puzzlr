@@ -10,6 +10,7 @@ import Minesweeper from './Minesweeper.jsx';
 /* The identifier cannot start with a digit; the display name still can, and
    lives in content.js under the id "2048" like every other game's does. */
 import Game2048 from './Game2048.jsx';
+import Tetris from './Tetris.jsx';
 import { CONTENT } from '../content.js';
 
 /* ============================= GAME REGISTRY =============================
@@ -143,6 +144,39 @@ const ENTRIES = [
         <circle cx="31.6" cy="16.4" r="1.35" fill="#173a22" />
         <circle cx="39.5" cy="12" r="6.2" fill="url(#snA)" />
         <path d="M39.5 6 q1.6-3.4 4.4-3.2" fill="none" stroke="#3f7a35" strokeWidth="1.8" strokeLinecap="round" />
+      </g>
+    ),
+  },
+  {
+    /* An S-tetromino: four blocks offset across two rows, which reads as
+       Tetris far faster than a single square would. The accent is the purple
+       the T piece wears in the game, and it is the only purple on the landing
+       page. Sits with the other solo games rather than at the end — it is the
+       most replayable of the lot. */
+    id: "tetris", accent: "#9b5fa8", Comp: Tetris,
+    icon: (
+      <g>
+        <defs>
+          <linearGradient id="ttA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#c08cd0" /><stop offset="1" stopColor="#7b4189" /></linearGradient>
+        </defs>
+        <g fill="rgba(74,53,36,.2)">
+          <rect x="19.5" y="14.5" width="13" height="13" rx="3.4" />
+          <rect x="33.5" y="14.5" width="13" height="13" rx="3.4" />
+          <rect x="5.5" y="28.5" width="13" height="13" rx="3.4" />
+          <rect x="19.5" y="28.5" width="13" height="13" rx="3.4" />
+        </g>
+        <g fill="url(#ttA)">
+          <rect x="19.5" y="12.5" width="13" height="13" rx="3.4" />
+          <rect x="33.5" y="12.5" width="13" height="13" rx="3.4" />
+          <rect x="5.5" y="26.5" width="13" height="13" rx="3.4" />
+          <rect x="19.5" y="26.5" width="13" height="13" rx="3.4" />
+        </g>
+        <g fill="#fff" opacity=".3">
+          <rect x="21" y="13.8" width="10" height="3.6" rx="1.8" />
+          <rect x="35" y="13.8" width="10" height="3.6" rx="1.8" />
+          <rect x="7" y="27.8" width="10" height="3.6" rx="1.8" />
+          <rect x="21" y="27.8" width="10" height="3.6" rx="1.8" />
+        </g>
       </g>
     ),
   },

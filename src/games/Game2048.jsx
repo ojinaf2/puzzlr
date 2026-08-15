@@ -263,6 +263,14 @@ export default function Game2048() {
   const [best, setBest] = useState(() => readBest(4));
   const touch = useRef(null);
 
+  /* Glass tiles were briefly a setting. Anyone who switched it on still has
+     the key sitting in their storage, so clear it on the way past.
+     Safe to delete this effect once the stragglers have visited — nothing
+     reads the key, it is only tidiness. */
+  useEffect(() => {
+    try { localStorage.removeItem("puzzlr:2048:glass"); } catch { /* private mode */ }
+  }, []);
+
   const over = useMemo(() => isOver(game), [game]);
   const showWin = game.won && !game.keepGoing;
 

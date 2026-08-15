@@ -80,6 +80,12 @@ export const CONTENT = {
       blurb: "Slide the tiles, merge matching numbers and build your way to 2048. Play the classic four-by-four, or give yourself more room on a bigger board.",
       players: "1 player",
     },
+    tetris: {
+      name: "Tetris",
+      tag: "Stack, clear, survive",
+      blurb: "Fit the falling pieces together and clear lines before the stack reaches the top. Hold a piece for later, plan with the preview, and clear four rows at once for the big score.",
+      players: "1 player",
+    },
   },
   intros: {
     snake: "Eat apples, grow longer, and do not hit the wall or yourself. ",
@@ -88,6 +94,7 @@ export const CONTENT = {
     hangman: "Guess the word one letter at a time. Seven wrong guesses and the cowboy is done for.",
     snakeControls: "Arrow keys or WASD, swipe on the board, or use the pad. Space pauses.",
     game2048: "Arrow keys or WASD, or swipe the board. Matching tiles merge into one — but each tile only merges once per move.",
+    tetris: "Arrow keys or A and D to move, space to rotate, down to drop faster, up to slam it down, C to hold. On a phone: swipe to move, tap to rotate, hold to drop — or use the buttons.",
   },
   common: {
     daily: "Daily",

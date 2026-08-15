@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "node scripts/build-sitemap.mjs && vite build",
     "preview": "vite preview",
-    "test": "node test/daily.test.mjs && node test/snake.test.mjs && node test/minesweeper.test.mjs && node test/game2048.test.mjs",
+    "test": "node test/daily.test.mjs && node test/snake.test.mjs && node test/minesweeper.test.mjs && node test/game2048.test.mjs && node test/tetris.test.mjs",
     "build:words": "node scripts/build-hangman-words.mjs"
   },
   "dependencies": {
