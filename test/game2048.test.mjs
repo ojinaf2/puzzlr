@@ -177,6 +177,41 @@ const row = (values, dir = 'left') => settled(move(fromGrid([values]), dir, fixe
   eq('and does not block the slide', settled(g)[0][3], 4);
 }
 
+/* ------------------------------------------------------------- distance
+   The component times each tile's slide from this, so a tile crossing the
+   board takes longer than one shuffling next door. Wrong numbers here do not
+   break the game, they just make it feel wrong — which is exactly the kind of
+   thing that goes unnoticed without a test. */
+{
+  const g = move(fromGrid([[0, 0, 0, 2]]), 'left', fixed);
+  const slid = liveTiles(g).find((t) => !t.isNew);
+  eq('a tile crossing three cells reports 3', slid.dist, 3);
+}
+{
+  const g = move(fromGrid([[2, 0, 0, 4]]), 'left', fixed);
+  const byCol = Object.fromEntries(liveTiles(g).filter((t) => !t.isNew).map((t) => [t.value, t.dist]));
+  eq('the tile already at the wall has not moved', byCol[2], 0);
+  eq('the one behind it closes up by two', byCol[4], 2);
+}
+{
+  const g = move(fromGrid([[2, 0, 0, 2]]), 'left', fixed);
+  const survivor = g.tiles.find((t) => t.merged);
+  const eaten = g.tiles.find((t) => t.absorbed);
+  eq('a survivor that stayed put reports 0', survivor.dist, 0);
+  eq('the tile it ate travelled the full gap', eaten.dist, 3);
+}
+{
+  const g = move(fromGrid([[0, 0, 0, 2]]), 'up', fixed);
+  eq('vertical distance counts the same way', liveTiles(g).find((t) => !t.isNew).dist, 0);
+  const down = move(fromGrid([[0, 0, 0, 2]]), 'down', fixed);
+  eq('and downwards across a 4 board is 3', liveTiles(down).find((t) => !t.isNew).dist, 3);
+}
+{
+  const g = move(fromGrid([[2, 2, 0, 0]]), 'left', fixed);
+  eq('a spawned tile has no distance', liveTiles(g).find((t) => t.isNew).dist, 0);
+  eq('nor do the tiles of a new game', newGame(4, () => 0.5).tiles.every((t) => t.dist === 0), true);
+}
+
 /* -------------------------------------------------------------- game over */
 {
   const g = fromGrid([

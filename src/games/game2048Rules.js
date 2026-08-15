@@ -61,6 +61,7 @@ const makeTile = (tiles, n, seq, rnd) => {
     isNew: true,
     merged: false,
     absorbed: false,
+    dist: 0,                                     // it appears where it appears
   };
 };
 
@@ -97,7 +98,7 @@ export function fromGrid(grid, extra = {}) {
   const tiles = [];
   let seq = 1;
   grid.forEach((row, r) => row.forEach((v, c) => {
-    if (v) tiles.push({ id: seq++, value: v, r, c, isNew: false, merged: false, absorbed: false });
+    if (v) tiles.push({ id: seq++, value: v, r, c, isNew: false, merged: false, absorbed: false, dist: 0 });
   }));
   return { size: n, tiles, score: 0, seq, won: false, keepGoing: false, ...extra };
 }
@@ -165,13 +166,22 @@ export function move(g, dir, rnd = Math.random) {
 
     solved.forEach((s, j) => {
       const [r, c] = coord(dir, i, j, n);
-      if (s.keep.r !== r || s.keep.c !== c) moved = true;
+      /* How far this tile travels, in cells. Movement is along one axis, so
+         the two terms are really "one of these is zero". The component times
+         the slide from it: without it every move takes the same duration
+         whatever the distance, which makes a tile crossing the whole board
+         move five times faster than one shuffling into the next cell. */
+      const went = Math.abs(s.keep.r - r) + Math.abs(s.keep.c - c);
+      if (went) moved = true;
       survivors.push({
-        ...s.keep, r, c, value: s.value, merged: !!s.eaten, isNew: false,
+        ...s.keep, r, c, value: s.value, merged: !!s.eaten, isNew: false, dist: went,
       });
       if (s.eaten) {
         moved = true;                            // the eaten tile always travels
-        dying.push({ ...s.eaten, r, c, merged: false, isNew: false, absorbed: true });
+        dying.push({
+          ...s.eaten, r, c, merged: false, isNew: false, absorbed: true,
+          dist: Math.abs(s.eaten.r - r) + Math.abs(s.eaten.c - c),
+        });
       }
     });
   }

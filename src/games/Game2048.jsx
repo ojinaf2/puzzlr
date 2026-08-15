@@ -29,6 +29,24 @@ const DIGIT_STEP = [1, 1, 0.86, 0.72, 0.6];        // by digit count, 1-indexed
 const BASE_FONT = { 4: 2.125, 5: 1.75, 6: 1.4375 };  // rem, per board size
 const GAP = { 4: 6, 5: 5, 6: 4 };                    // px between tiles
 
+/* ------------------------------------------------------------- timing
+   A tile crossing five cells used to take exactly as long as one crossing a
+   single cell, which meant the long one moved five times faster. That is what
+   read as snappy on the full-board slides: not the easing, the velocity.
+
+   Distance now buys time, but sub-linearly. Constant velocity would be the
+   physically honest option and it feels terrible — a full-length move would
+   take most of a second and the game would drag. The exponent is the
+   compromise: long moves get noticeably longer to travel without the board
+   ever feeling slow. */
+const SLIDE_BASE = 190;
+const slideMs = (dist) => Math.round(SLIDE_BASE * Math.max(1, dist || 1) ** 0.38);
+
+/* Arrival effects fire just before the tile stops rather than exactly on the
+   stop, so the pulse overlaps the last of the travel and the two read as one
+   motion instead of two events. */
+const LAND_LEAD = 40;
+
 const fontFor = (value, size) => {
   const digits = String(value).length;
   const step = DIGIT_STEP[Math.min(digits, DIGIT_STEP.length - 1)];
@@ -59,6 +77,42 @@ const RAMP_DARK = {
 const rampVars = (ramp) => Object.entries(ramp)
   .map(([k, [bg, fg]]) => `--t${k}-bg:${bg};--t${k}-fg:${fg};`).join("");
 
+/* ------------------------------------------------------------- tile faces
+   Solid by default. Glass keeps the same ramp but drops the fill to a tint
+   and blurs the board through it, so the colour still says what the value is
+   while the tile reads as a pane rather than a block.
+
+   The number has to switch to C.text in glass mode. The solid ramp puts white
+   on everything from 32 upwards, and white on a 46% tint over a pale board is
+   unreadable — C.text is the one colour guaranteed to sit correctly on
+   whatever happens to show through, in either theme. */
+const faceStyle = (value, glass) => {
+  const bg = `var(--t${value}-bg, var(--tx-bg))`;
+  if (!glass) {
+    return {
+      background: bg,
+      color: `var(--t${value}-fg, var(--tx-fg))`,
+      boxShadow: `${GLOSS}, ${SHADOW.sm}`,
+    };
+  }
+  return {
+    /* Two layers: a diagonal sheen over the colour tint. The sheen is what
+       actually sells it — a blur alone does nothing visible when the thing
+       behind it is a flat panel, so without this the tiles read as faded
+       rather than as glass. */
+    background: `linear-gradient(135deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.07) 44%, rgba(255,255,255,0) 60%), `
+      + `color-mix(in srgb, ${bg} 46%, transparent)`,
+    color: C.text,
+    backdropFilter: "blur(6px) saturate(150%)",
+    WebkitBackdropFilter: "blur(6px) saturate(150%)",
+    /* A bright hairline along the whole edge, not just the top: a pane
+       catches light all the way round, where a solid button only lights on
+       the face turned upwards. */
+    border: "1px solid color-mix(in srgb, #ffffff 40%, transparent)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,.42), 0 6px 16px rgba(0,0,0,.14)",
+  };
+};
+
 /* `x` is the fallback past 2048, reached through the var fallback below rather
    than by capping the value — someone who gets to 8192 should still see a
    tile. Empty cells are a wash rather than a colour so they sit on whatever
@@ -67,6 +121,20 @@ const styleBlock = `
   .g2048 {
     ${rampVars(RAMP_LIGHT)}
     --cell: rgba(74,53,36,.07);
+
+    /* Both timings in one place, because they are a pair rather than two
+       numbers: --land is when a tile finishes travelling, and every arrival
+       effect waits for it. Nudge --slide and --land follows. */
+    /* Defaults only. Both are overridden per tile from JS, because how long a
+       tile should take depends on how far it is going — see slideMs below. */
+    --slide: 190ms;
+    --land: 150ms;
+    /* The curves are the site's own. EASE leaves immediately and spends most
+       of the duration settling, which is exactly the glide this wanted — the
+       old version was not using the wrong curve, just far too little of it
+       at 130ms. */
+    --swish: ${EASE};
+    --spring: ${SPRING};
   }
   :root[data-theme="dark"] .g2048 {
     ${rampVars(RAMP_DARK)}
@@ -81,25 +149,57 @@ const styleBlock = `
 
   /* The slide. Only transform is animated — animating left/top would lay the
      board out again on every frame. */
-  .g2048-slot { transition: transform .13s ${EASE}; will-change: transform; }
+  .g2048-slot { transition: transform var(--slide) var(--swish); will-change: transform; }
+
+  /* Everything below waits for --land, and that delay is the whole fix for
+     "the tiles just appear". A spawn popping in while the board is still
+     moving reads as the board redrawing itself; the same pop after the travel
+     has finished reads as a tile arriving. Same for a merge. */
 
   @keyframes g2048-pop {
-    from { transform: scale(.35); opacity: 0 }
-    to   { transform: scale(1);   opacity: 1 }
+    0%   { transform: scale(.2);  opacity: 0 }
+    55%  { transform: scale(1.1); opacity: 1 }
+    100% { transform: scale(1);   opacity: 1 }
   }
-  /* The flashy moment: a quick overshoot plus a bloom in the tile's own
-     colour, which is what makes a merge feel like it landed. */
+  /* The "both" fill mode matters: its backwards half holds the tile at
+     scale(.2) and invisible for the whole delay, so a spawning tile is
+     genuinely absent while the others slide rather than sitting there at
+     full size waiting for its turn to animate. */
+  .g2048-new { animation: g2048-pop 190ms var(--spring) var(--land) both; }
+
+  /* The merge lands in two parts. First the tile itself takes a bounce, over
+     and slightly under before settling. */
   @keyframes g2048-merge {
     0%   { transform: scale(1) }
-    40%  { transform: scale(1.17); box-shadow: ${GLOSS}, ${SHADOW.md}, 0 0 20px 2px var(--flash) }
+    35%  { transform: scale(1.2); box-shadow: ${GLOSS}, ${SHADOW.md}, 0 0 22px 2px var(--flash) }
+    68%  { transform: scale(.96) }
     100% { transform: scale(1) }
   }
-  .g2048-new  { animation: g2048-pop .16s ${SPRING} both }
-  .g2048-mrg  { animation: g2048-merge .22s ${EASE} }
+  .g2048-mrg { animation: g2048-merge 260ms var(--spring) var(--land) both; }
+
+  /* Then it throws a ring of its own colour outwards, which fades as it goes.
+     That is the echo — it carries the merge past the edge of the tile, so a
+     merge registers even when you are looking somewhere else on the board. */
+  @keyframes g2048-echo {
+    0%   { opacity: .9; transform: scale(1) }
+    100% { opacity: 0;  transform: scale(1.8) }
+  }
+  .g2048-mrg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 2px solid var(--flash);
+    pointer-events: none;
+    animation: g2048-echo 440ms var(--swish) var(--land) both;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .g2048-slot { transition: none !important }
     .g2048-new, .g2048-mrg { animation: none !important }
+    /* Not just animation:none — without the keyframes the ring would sit
+       there at full opacity as a permanent outline. */
+    .g2048-mrg::after { display: none }
   }
 `;
 
@@ -117,6 +217,15 @@ const readBest = (size) => {
 };
 const writeBest = (size, score) => {
   try { localStorage.setItem(bestKey(size), String(score)); } catch { /* private mode */ }
+};
+
+/* Not per size — it is a look, not a score. */
+const GLASS_KEY = "puzzlr:2048:glass";
+const readGlass = () => {
+  try { return localStorage.getItem(GLASS_KEY) === "1"; } catch { return false; }
+};
+const writeGlass = (on) => {
+  try { localStorage.setItem(GLASS_KEY, on ? "1" : "0"); } catch { /* private mode */ }
 };
 
 /* ------------------------------------------------------------------- bits */
@@ -175,7 +284,10 @@ export default function Game2048() {
      changes it. Two useStates would let a fast second press land between them. */
   const [{ game, prev }, setState] = useState(() => ({ game: newGame(4), prev: null }));
   const [best, setBest] = useState(() => readBest(4));
+  const [glass, setGlass] = useState(readGlass);
   const touch = useRef(null);
+
+  useEffect(() => { writeGlass(glass); }, [glass]);
 
   const over = useMemo(() => isOver(game), [game]);
   const showWin = game.won && !game.keepGoing;
@@ -257,6 +369,9 @@ export default function Game2048() {
 
   const cell = 100 / size;
   const tiles = game.tiles;
+  /* When the last tile of this move stops. A spawn waits for it rather than
+     for its own (zero) distance. */
+  const settleMs = Math.max(SLIDE_BASE, ...tiles.map((t) => slideMs(t.dist)));
   const intro = CONTENT.intros?.game2048;
 
   return (
@@ -303,29 +418,46 @@ export default function Game2048() {
             </div>
           ))}
 
-          {tiles.map((t) => (
-            <div key={t.id} className="g2048-slot" style={{
-              position: "absolute", left: 0, top: 0, width: `${cell}%`, height: `${cell}%`,
-              transform: `translate(${t.c * 100}%, ${t.r * 100}%)`,
-              /* An absorbed tile slides under its survivor, never over it. */
-              zIndex: t.absorbed ? 1 : 2,
-            }}>
-              <div
-                className={t.isNew ? "g2048-new" : t.merged ? "g2048-mrg" : undefined}
-                style={{
-                  position: "absolute", inset: GAP[size], borderRadius: 9,
-                  display: "grid", placeItems: "center",
-                  background: `var(--t${t.value}-bg, var(--tx-bg))`,
-                  color: `var(--t${t.value}-fg, var(--tx-fg))`,
-                  "--flash": `var(--t${t.value}-bg, var(--tx-bg))`,
-                  fontSize: fontFor(t.value, size), fontWeight: 800,
-                  fontVariantNumeric: "tabular-nums", lineHeight: 1,
-                  boxShadow: `${GLOSS}, ${SHADOW.sm}`,
-                }}>
-                {t.value}
+          {tiles.map((t) => {
+            const travel = slideMs(t.dist);
+            /* A spawning tile waits for the whole board to stop, not just for
+               itself — it has not travelled, so it has no distance of its own
+               to wait out, and appearing while the longest tile is still in
+               flight is the thing that made the board look like it redrew. */
+            const land = t.isNew ? settleMs - 30 : Math.max(0, travel - LAND_LEAD);
+            return (
+              <div key={t.id} className="g2048-slot" style={{
+                position: "absolute", left: 0, top: 0, width: `${cell}%`, height: `${cell}%`,
+                transform: `translate(${t.c * 100}%, ${t.r * 100}%)`,
+                transitionDuration: `${travel}ms`,
+                /* An absorbed tile slides under its survivor, never over it. */
+                zIndex: t.absorbed ? 1 : 2,
+              }}>
+                <div
+                  /* Keyed on the value so the face remounts when it doubles.
+                     A CSS animation only restarts when the class changes, and a
+                     tile merging twice in a row keeps the same class both times
+                     — without this the second merge slides in silently. */
+                  key={t.value}
+                  className={t.isNew ? "g2048-new" : t.merged ? "g2048-mrg" : undefined}
+                  style={{
+                    position: "absolute", inset: GAP[size], borderRadius: 9,
+                    display: "grid", placeItems: "center",
+                    /* Set as a custom property rather than as animation-delay,
+                       because the echo lives on ::after and inline styles
+                       cannot reach a pseudo-element — but they do inherit
+                       into one. */
+                    "--land": `${land}ms`,
+                    "--flash": `var(--t${t.value}-bg, var(--tx-bg))`,
+                    fontSize: fontFor(t.value, size), fontWeight: 800,
+                    fontVariantNumeric: "tabular-nums", lineHeight: 1,
+                    ...faceStyle(t.value, glass),
+                  }}>
+                  {t.value}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {showWin && (
             <Overlay title="2048!" body={`You made it, with ${game.score} points.`}>
@@ -347,21 +479,43 @@ export default function Game2048() {
         width: "100%", maxWidth: 440, display: "flex", alignItems: "center",
         justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 14,
       }}>
-        <Btn variant="ghost" onClick={undo} disabled={!prev}
-          style={{
-            padding: "10px 18px", fontSize: "0.84375rem",
-            opacity: prev ? 1 : .45,
-            /* Btn keeps its .btn3d class when disabled, so without this the
-               greyed-out button still lifts and brightens under the cursor. */
-            pointerEvents: prev ? undefined : "none",
-            display: "inline-flex", alignItems: "center", gap: 7,
-          }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" />
-          </svg>
-          Undo
-        </Btn>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Btn variant="ghost" onClick={undo} disabled={!prev}
+            style={{
+              padding: "10px 18px", fontSize: "0.84375rem",
+              opacity: prev ? 1 : .45,
+              /* Btn keeps its .btn3d class when disabled, so without this the
+                 greyed-out button still lifts and brightens under the cursor. */
+              pointerEvents: prev ? undefined : "none",
+              display: "inline-flex", alignItems: "center", gap: 7,
+            }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+            </svg>
+            Undo
+          </Btn>
+
+          <button onClick={() => setGlass((on) => !on)} aria-pressed={glass}
+            title={glass ? "Solid tiles" : "Glass tiles"}
+            className={glass ? "btn3d" : "btn-flat"}
+            style={{
+              border: glass ? "none" : `1px solid ${C.line}`,
+              borderRadius: 11, cursor: "pointer", fontFamily: "inherit",
+              padding: "9px 15px", fontSize: "0.8125rem", fontWeight: 700,
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: glass ? C.accent : "transparent",
+              color: glass ? "#fff" : C.dim,
+              boxShadow: glass ? `${GLOSS}, ${SHADOW.sm}` : "none",
+            }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="4" />
+              <path d="M8 21 20 9" opacity=".85" /><path d="M3 14 14 3" opacity=".55" />
+            </svg>
+            Glass
+          </button>
+        </div>
 
         <div role="group" aria-label="Board size" style={{
           display: "flex", gap: 4, background: C.panel2, borderRadius: 20, padding: 4,
