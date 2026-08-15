@@ -44,15 +44,16 @@ const c4Style = `
   @media (prefers-reduced-motion: reduce) { .c4-drop, .c4-win { animation: none !important; } }
 `;
 
-export default function ConnectFour({ roomCode, navigate }) {
-  // Declared before the branch: a hook must run on every render.
-  const [online, setOnline] = useState(false);
+export default function ConnectFour({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh
+     while choosing keeps you on it instead of dropping back to the local
+     game. */
   if (roomCode) return <OnlineConnectFour roomCode={roomCode} navigate={navigate} />;
-  if (online) {
+  if (mode === 'online') {
     return <OnlineEntry gameId="connect4" gameName="Connect 4" navigate={navigate}
-      onCancel={() => setOnline(false)} />;
+      onCancel={() => navigate('connect4')} />;
   }
-  return <LocalConnectFour navigate={navigate} onOnline={() => setOnline(true)} />;
+  return <LocalConnectFour navigate={navigate} onOnline={() => navigate('connect4', 'online')} />;
 }
 
 /* The board itself, shared by both modes. It knows nothing about whose turn it

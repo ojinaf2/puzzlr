@@ -17,9 +17,6 @@ const AdminPanel = import.meta.env.DEV
   ? lazy(() => import('./admin/AdminPanel.jsx'))
   : null;
 
-// Landing copy counts the games itself, so adding one to the registry keeps it honest.
-const NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
-const countWord = (n) => NUMBER_WORDS[n] ?? String(n);
 
 /* Sun and moon share one button. The icons cross-fade and counter-rotate so
    the switch reads as a single object turning over rather than two separate
@@ -115,7 +112,7 @@ function Landing({ onPick }) {
           {CONTENT.hub.headlineTop}<br />{CONTENT.hub.headlineBottom}
         </h1>
         <p style={{ color: C.dim, fontSize: "1rem", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-          {fill(CONTENT.hub.intro, { count: countWord(GAMES.length) })}
+          {CONTENT.hub.intro}
         </p>
       </section>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, paddingBottom: 60 }}>
@@ -131,8 +128,10 @@ function Landing({ onPick }) {
    search engines saw one page and every shared link previewed identically. */
 const SITE = "https://playpuzzlr.com";
 
-const HOME_TITLE = `Puzzlr — ${countWord(GAMES.length).toLowerCase()} quick browser games, no sign-up`;
-const HOME_DESC = `${countWord(GAMES.length)} hand-built games in one place: ${GAMES.map((g) => g.name).join(", ").replace(/, ([^,]*)$/, " and $1")}. No sign-up, no apps, no timer pressure.`;
+const HOME_TITLE = `Puzzlr — quick browser games, no sign-up`;
+/* Deliberately no count. Games get added, and a number baked into a shared
+   link or a search result goes stale the moment one does. */
+const HOME_DESC = `Hand-built games in one place: ${GAMES.map((g) => g.name).join(", ").replace(/, ([^,]*)$/, " and $1")}. No sign-up, no apps, no timer pressure.`;
 
 const setMeta = (selector, attr, value) => {
   const el = document.head.querySelector(selector);
@@ -165,7 +164,7 @@ function useDocumentMeta(game, theme) {
 
 /* ============================= ROOT APP ============================= */
 export default function App() {
-  const [{ gameId, roomCode }, navigate] = useRoute();
+  const [{ gameId, roomCode, mode }, navigate] = useRoute();
   const game = GAMES.find((g) => g.id === gameId);
   const theme = useTheme();
   useDocumentMeta(game, theme);
@@ -180,7 +179,7 @@ export default function App() {
     if (gameId && !game && !adminRoute) navigate(null, null, { replace: true });
   }, [gameId, game, adminRoute, navigate]);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [gameId, roomCode]);
+  useEffect(() => { window.scrollTo(0, 0); }, [gameId, roomCode, mode]);
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "var(--font-body)" }}>
@@ -268,7 +267,7 @@ export default function App() {
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
             {/* roomCode and navigate are passed down for the online modes; the
                 local-only games simply ignore them. */}
-            <game.Comp key={game.id} roomCode={roomCode} navigate={navigate} />
+            <game.Comp key={game.id} roomCode={roomCode} mode={mode} navigate={navigate} />
           </div>
         )}
       </main>

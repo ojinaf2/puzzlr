@@ -82,15 +82,16 @@ const suggestFor = (raw) => {
   return [...leading, ...midName].slice(0, MAX_SUGGESTIONS);
 };
 
-export default function FlagQuiz({ roomCode, navigate }) {
-  // Declared before the branch: a hook must run on every render.
-  const [online, setOnline] = useState(false);
+export default function FlagQuiz({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh
+     while choosing keeps you on it instead of dropping back to the local
+     game. */
   if (roomCode) return <OnlineFlagQuiz roomCode={roomCode} navigate={navigate} />;
-  if (online) {
+  if (mode === 'online') {
     return <OnlineEntry gameId="flags" gameName="Flag Quiz" navigate={navigate}
-      onCancel={() => setOnline(false)} />;
+      onCancel={() => navigate('flags')} />;
   }
-  return <LocalFlagQuiz navigate={navigate} onOnline={() => setOnline(true)} />;
+  return <LocalFlagQuiz navigate={navigate} onOnline={() => navigate('flags', 'online')} />;
 }
 
 function LocalFlagQuiz({ navigate, onOnline }) {

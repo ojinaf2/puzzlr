@@ -31,15 +31,16 @@ function Board({ board, winLine, winnerMark, onPlay, disabled }) {
   );
 }
 
-export default function TicTacToe({ roomCode, navigate }) {
-  // Declared before the branch: a hook must run on every render.
-  const [online, setOnline] = useState(false);
+export default function TicTacToe({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh
+     while choosing keeps you on it instead of dropping back to the local
+     game. */
   if (roomCode) return <OnlineTicTacToe roomCode={roomCode} navigate={navigate} />;
-  if (online) {
+  if (mode === 'online') {
     return <OnlineEntry gameId="tictactoe" gameName="Tic-Tac-Toe" navigate={navigate}
-      onCancel={() => setOnline(false)} />;
+      onCancel={() => navigate('tictactoe')} />;
   }
-  return <LocalTicTacToe navigate={navigate} onOnline={() => setOnline(true)} />;
+  return <LocalTicTacToe navigate={navigate} onOnline={() => navigate('tictactoe', 'online')} />;
 }
 
 /* ------------------------------ same device ------------------------------ */

@@ -8,11 +8,15 @@ import { copyText, useCountdown } from './daily.js';
    has one: the switch between today's puzzle and endless practice, and the
    panel of stats that replaces the board once the puzzle is over. */
 
-export function ModeTabs({ mode, setMode, dailyDone }) {
-  const tab = (key, label) => {
+/* `onFriends` is optional. When given, a third tab sits alongside the two
+   modes rather than the online option living at the bottom of the page — it
+   is a way to play, so it belongs with the other ways to play. It navigates
+   instead of setting mode, because online play is a route of its own. */
+export function ModeTabs({ mode, setMode, dailyDone, onFriends }) {
+  const tab = (key, label, onClick) => {
     const on = mode === key;
     return (
-      <button key={key} onClick={() => setMode(key)}
+      <button key={key} onClick={onClick ?? (() => setMode(key))}
         style={{
           background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
           border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
@@ -27,6 +31,7 @@ export function ModeTabs({ mode, setMode, dailyDone }) {
       {tab("daily", "Daily")}
       {/* The mode is still called "practice" in code; only the label changed. */}
       {tab("practice", "Unlimited")}
+      {onFriends && tab("friends", "Play with Friend", onFriends)}
     </div>
   );
 }

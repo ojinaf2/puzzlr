@@ -8,15 +8,24 @@ import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 
 /* ============================= WAVELENGTH ============================= */
-export default function Wavelength({ roomCode, navigate }) {
-  // Declared before the branch: a hook must run on every render.
-  const [online, setOnline] = useState(false);
+/* The floor is one clue each; the rest are simply longer games. Capped at
+   the server's own limit of twenty. */
+const roundChoices = (players) => {
+  const out = [];
+  for (let n = players; n <= 20 && out.length < 6; n += (n < players + 3 ? 1 : 2)) out.push(n);
+  return out;
+};
+
+export default function Wavelength({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh
+     while choosing keeps you on it instead of dropping back to the local
+     game. */
   if (roomCode) return <OnlineWavelength roomCode={roomCode} navigate={navigate} />;
-  if (online) {
+  if (mode === 'online') {
     return <OnlineEntry gameId="wavelength" gameName="Wavelength" navigate={navigate}
-      onCancel={() => setOnline(false)} />;
+      onCancel={() => navigate('wavelength')} />;
   }
-  return <LocalWavelength navigate={navigate} onOnline={() => setOnline(true)} />;
+  return <LocalWavelength navigate={navigate} onOnline={() => navigate('wavelength', 'online')} />;
 }
 
 function LocalWavelength({ navigate, onOnline }) {
@@ -207,10 +216,35 @@ function OnlineWavelength({ roomCode, navigate }) {
             </span>
           ))}
         </div>
+        {/* The floor is one clue each, so nobody misses their turn at the good
+            half of the game. Above that the host can make it as long as
+            they like. */}
+        {isHost && room.players.length >= 2 && (
+          <div style={{ width: "100%", maxWidth: 380, marginBottom: 16 }}>
+            <div style={{ ...capStyle, marginBottom: 8 }}>Rounds</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+              {roundChoices(room.players.length).map((n) => {
+                const on = (g.chosenRounds ?? room.players.length) === n;
+                return (
+                  <button key={n} onClick={() => send({ type: 'config', rounds: n })}
+                    style={{
+                      minWidth: 46, padding: "8px 12px", borderRadius: 9, border: "none",
+                      cursor: "pointer", fontFamily: "inherit", fontSize: "0.875rem", fontWeight: 700,
+                      background: on ? C.accent : C.panel, color: on ? "#fff" : C.text,
+                    }}>{n}</button>
+                );
+              })}
+            </div>
+            <p style={{ ...pStyle, fontSize: "0.75rem", margin: "8px auto 0" }}>
+              At least {room.players.length}, so everyone gives a clue.
+            </p>
+          </div>
+        )}
+
         <p style={{ ...pStyle, fontSize: "0.8125rem" }}>
           {room.players.length < 2
             ? 'Waiting for at least one more player.'
-            : `${room.players.length} rounds — everyone gives one clue.`}
+            : `${g.chosenRounds ?? room.players.length} rounds, clue-giving takes turns.`}
         </p>
         {isHost
           ? <Btn disabled={room.players.length < 2} style={{ opacity: room.players.length < 2 ? .5 : 1 }}
@@ -276,12 +310,16 @@ function OnlineWavelength({ roomCode, navigate }) {
             lands, the more you score.
           </p>
           <Dial left={g.spectrum[0]} right={g.spectrum[1]} showTarget target={g.target} value={g.target} onChange={() => {}} readOnly />
+          {/* A prompt you have no feel for makes a dull round for everyone. The
+              target moves with it, so there is nothing to fish for. */}
+          <Btn variant="subtle" style={{ marginTop: 12 }}
+            onClick={() => send({ type: 'move', action: 'respin' })}>Change prompt</Btn>
           <form onSubmit={(e) => { e.preventDefault(); if (clueDraft.trim()) { send({ type: 'move', action: 'clue', clue: clueDraft }); setClueDraft(""); } }}
             style={{ display: "flex", gap: 10, marginTop: 16, width: "100%", maxWidth: 380, justifyContent: "center", flexWrap: "wrap" }}>
             <input value={clueDraft} onChange={(e) => setClueDraft(e.target.value)} autoFocus maxLength={40}
               placeholder="Your clue" autoComplete="off"
               style={{ flex: "1 1 200px", minWidth: 0, padding: "13px 16px", fontSize: "1rem", fontFamily: "inherit", color: C.text,
-                background: "#fff", border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
+                background: C.bg, border: `2px solid ${C.line}`, borderRadius: 12, outlineColor: C.accent, textAlign: "center" }} />
             <Btn type="submit" disabled={!clueDraft.trim()} style={{ opacity: clueDraft.trim() ? 1 : .5 }}>Send clue</Btn>
           </form>
         </>

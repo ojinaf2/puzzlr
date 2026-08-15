@@ -21,15 +21,16 @@ const scoreGuess = (guess, answer) => {
 };
 const KEYS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
 
-export default function Wordle({ roomCode, navigate }) {
-  // Declared before the branch: a hook must run on every render.
-  const [online, setOnline] = useState(false);
+export default function Wordle({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh
+     while choosing keeps you on it instead of dropping back to the local
+     game. */
   if (roomCode) return <OnlineWordle roomCode={roomCode} navigate={navigate} />;
-  if (online) {
+  if (mode === 'online') {
     return <OnlineEntry gameId="wordle" gameName="Wordl Unlimited" navigate={navigate}
-      onCancel={() => setOnline(false)} />;
+      onCancel={() => navigate('wordle')} />;
   }
-  return <LocalWordle navigate={navigate} onOnline={() => setOnline(true)} />;
+  return <LocalWordle navigate={navigate} onOnline={() => navigate('wordle', 'online')} />;
 }
 
 const DAILY_ID = "wordle";
@@ -66,7 +67,8 @@ function LocalWordle({ navigate, onOnline }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-      <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done} />
+      <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done}
+        onFriends={roomServerUrl() ? onOnline : undefined} />
       {daily && (
         <div style={{ fontSize: "0.78125rem", color: C.dim, marginBottom: 10, textAlign: "center" }}>
           Puzzle #{day} — the same word for everyone today
@@ -90,9 +92,6 @@ function LocalWordle({ navigate, onOnline }) {
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
         {finished && <Btn onClick={() => setMode("practice")}>Keep playing</Btn>}
-        {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => onOnline()}>Race a friend online</Btn>
-        )}
       </div>
     </div>
   );

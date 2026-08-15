@@ -7,14 +7,14 @@
    fine and survive, but keep it plain data: no imports, no logic, no template
    literals. Anything cleverer than a string will not survive the round trip.
 
-   `{count}` and `{name}` are filled in at render time.                     */
+   `{name}` is filled in at render time.                                     */
 
 export const CONTENT = {
   hub: {
     eyebrow: "A little arcade of quick games",
     headlineTop: "Play, guess,",
     headlineBottom: "and outsmart a friend.",
-    intro: "{count}No sign-up, no timer pressure. Just open one and go.",
+    intro: "Hand-built games in one place. No sign-up, no timer pressure. Just open one and go.",
     cardCta: "Play →",
     backToGames: "All games",
     footer: "{name} — a small collection of games. Built for fun.",

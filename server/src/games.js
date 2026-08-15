@@ -551,16 +551,39 @@ const wavelength = {
     roundPoints: {},
     scores: {},
     roundNo: 0,
+    chosenRounds: null,     // what the host asked for in the lobby
   }),
 
-  start(room) {
-    // Everyone gives exactly one clue, in the order they joined.
+  /* At least one clue each, and the host may ask for more. The floor is the
+     number of people in the room, because below that somebody never gets a
+     turn at giving a clue, which is the good half of the game. */
+  minRounds: (room) => room.players.length,
+  maxRounds: 20,
+
+  config(room, msg) {
+    if (room.status === 'playing') return { error: 'Finish the game first.' };
+    const rounds = Number(msg.rounds);
+    const min = wavelength.minRounds(room);
+    if (!Number.isInteger(rounds) || rounds < min || rounds > wavelength.maxRounds) {
+      return { error: `Between ${min} and ${wavelength.maxRounds} rounds.` };
+    }
+    room.game.chosenRounds = rounds;
+    return {};
+  },
+
+  start(room, previous) {
+    // Clue-giving rotates in the order people joined.
     const order = room.players.map((p) => p.id);
+    const asked = Number(previous?.chosenRounds);
+    const total = Number.isInteger(asked) && asked >= order.length
+      ? Math.min(asked, wavelength.maxRounds)
+      : order.length;
     return {
       ...wavelengthRound(order, 1),
       phase: 'clue',
       round: 1,
-      totalRounds: order.length,
+      totalRounds: total,
+      chosenRounds: previous?.chosenRounds ?? null,
       order,
       scores: Object.fromEntries(order.map((id) => [id, 0])),
       roundNo: 1,
@@ -579,6 +602,19 @@ const wavelength = {
       if (!clue) return { error: 'Give them something to go on.' };
       g.clue = clue;
       g.phase = 'guess';
+      return {};
+    }
+
+    /* A prompt the giver has no feel for makes a dull round for everyone, so
+       they can draw another — but only before they have given the clue, and
+       only their own. The target moves with it, so there is nothing to fish
+       for by re-rolling. */
+    if (msg.action === 'respin') {
+      if (g.phase !== 'clue') return { error: 'Only before the clue is given.' };
+      if (player.id !== g.giverId) return { error: 'Only the clue-giver can change the prompt.' };
+      const drawn = wavelengthRound(g.order, g.round);
+      g.spectrum = drawn.spectrum;
+      g.target = drawn.target;
       return {};
     }
 

@@ -208,5 +208,61 @@ console.log('\n— two players is still a game —');
   check('the giver takes that single score', r.game.roundPoints[giver(r)] === 4, String(r.game.roundPoints[giver(r)]));
 }
 
+
+console.log('\n— choosing the number of rounds —');
+{
+  const lobby = {
+    gameId: 'wavelength', status: 'lobby', hostId: 'ana',
+    players: ['ana', 'ben', 'cara'].map((id, i) => ({ id, name: id, seat: i, connected: true, lastSeen: Date.now() })),
+    game: w.create(),
+  };
+
+  check('the floor is one clue each', w.minRounds(lobby) === 3, String(w.minRounds(lobby)));
+  check('fewer than that is refused', !!w.config(lobby, { rounds: 2 }).error);
+  check('and so is a silly number', !!w.config(lobby, { rounds: 99 }).error);
+  check('and so is nonsense', !!w.config(lobby, { rounds: 'lots' }).error);
+
+  check('the floor itself is allowed', !w.config(lobby, { rounds: 3 }).error);
+  check('and more than that', !w.config(lobby, { rounds: 8 }).error);
+  check('the choice is remembered', lobby.game.chosenRounds === 8, String(lobby.game.chosenRounds));
+
+  const started = w.start(lobby, lobby.game);
+  check('starting honours the choice', started.totalRounds === 8, String(started.totalRounds));
+  check('and still rotates the giver', started.order.length === 3);
+
+  // With nothing chosen it falls back to one clue each.
+  const plain = w.start(lobby, w.create());
+  check('with no choice it is one each', plain.totalRounds === 3, String(plain.totalRounds));
+
+  // A choice that no longer fits the room cannot shrink it below the floor.
+  const shrunk = w.start(lobby, { chosenRounds: 1 });
+  check('a stale choice cannot drop below the floor', shrunk.totalRounds === 3, String(shrunk.totalRounds));
+
+  check('settings are refused mid-game', !!w.config({ ...lobby, status: 'playing' }, { rounds: 5 }).error);
+}
+
+console.log('\n— drawing a different prompt —');
+{
+  const r = makeRoom();
+  const g = giver(r);
+  const first = r.game.spectrum;
+
+  check('a guesser cannot change it', !!act(r, others(r)[0], { action: 'respin' }).error);
+
+  // The giver can, and the target moves with it so there is nothing to fish for.
+  let changed = false;
+  for (let i = 0; i < 40 && !changed; i++) {
+    act(r, g, { action: 'respin' });
+    if (r.game.spectrum !== first) changed = true;
+  }
+  check('the giver can draw another prompt', changed);
+  check('and it is still their round', r.game.giverId === g);
+  check('and still the clue phase', r.game.phase === 'clue');
+
+  // Once the clue is out, the prompt is settled.
+  act(r, g, { action: 'clue', clue: 'hedgehog' });
+  check('no re-rolling after the clue', !!act(r, g, { action: 'respin' }).error);
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

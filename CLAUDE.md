@@ -1,7 +1,7 @@
 # Puzzlr
 
-A hub of small browser games. Nine games, five of which can also be played
-online with friends over an invite link. No sign-up, no accounts, no database.
+A hub of small browser games, five of which can also be played online with
+friends over an invite link. No sign-up, no accounts, no database.
 Light and dark themes, following the device until the visitor picks one.
 
 - Live: <https://playpuzzlr.com> (also `www.`, and the older `puzzlr-one.vercel.app`)
@@ -30,10 +30,13 @@ src/
     theme.js          the C palette every game imports
     ui.jsx            Btn, TileBtn, Centered, hStyle, pStyle
     useRoom.js        websocket connection to a room, with reconnection
-    online.jsx        name entry, invite link, connection banner, lobby screens
+    online.jsx        name entry, host/join screen, invite link, lobby screens
+    rooms.js          browsing open rooms, and testing a code before joining
     daily.js          daily puzzle selection, streaks, sharing
     dailyUi.jsx       the Daily/Practice tabs and the end-of-puzzle stats panel
     utils.js          rand, shuffle
+  content.js          ALL user-facing text; rewritten by the editor at /admin
+  admin/AdminPanel.jsx  the dev-only site editor
   data/               word lists, countries, spectra — shared with the server
   games/
     index.jsx         THE REGISTRY. Adding a game means one entry here.
@@ -43,7 +46,8 @@ src/
 scripts/              build-time generators, never shipped to the browser
 test/                 node test suites for src/, no framework
 server/
-  src/index.js        Worker + the Room Durable Object (transport, no rules)
+  src/index.js        Worker, the Room Durable Object, and the Directory
+                      object that lists rooms open to join
   src/games.js        the rules of every online game, one entry per game
   test/               node test suites, no framework
 ```
@@ -51,8 +55,11 @@ server/
 ## Adding a game
 
 Local only: write `src/games/YourGame.jsx` with a default-exported component,
-import it in `src/games/index.jsx`, append one object to `GAMES`. Nothing else
-changes — the landing page counts the games itself.
+import it in `src/games/index.jsx`, and append one entry to `ENTRIES` there
+(id, accent, icon, component) **and** one to `CONTENT.games` in
+`src/content.js` under the same id (name, tag, blurb, players). The registry
+holds structure, `content.js` holds every word — that split is what gives the
+editor a single file to rewrite.
 
 Online as well: add an entry to `server/src/games.js` (`create`, `start`,
 `move`, plus optional `config`, `deadline`, `timeUp`, `forfeit`, `view`), then
@@ -191,6 +198,7 @@ code if an image fails, so two-letter codes on screen mean the path is wrong.
 npm install && npm run dev          # the site, on :5173
 npm run build                       # production build
 npm test                            # daily puzzles, Snake and Minesweeper rules
+npm run dev, then /admin            # the site editor (dev only)
 npm run build:words                 # regenerate src/data/hangmanWords.js
 
 cd server
@@ -228,6 +236,44 @@ For the browser, drive the real UI rather than trusting a build to pass. Note
 that two tabs on the same origin share `localStorage`, so they are the same
 player — testing two players needs a scripted websocket client as the opponent,
 and it also means both tabs share one daily record.
+
+## Wavelength settings
+
+Two host controls, both enforced in `server/src/games.js`:
+
+- **Rounds.** The floor is the number of people in the room, so nobody misses
+  their turn at giving a clue — which is the good half of the game. `config`
+  refuses anything below it or above twenty, and `start` clamps again, so a
+  choice made when the room was larger cannot leave a latecomer without a turn.
+- **Change prompt.** The clue-giver may draw a different spectrum, but only
+  before their clue is in. The target is redrawn with it, so there is nothing
+  to fish for by re-rolling.
+
+## Things that look wrong but are not
+
+Every one of these has already cost an afternoon:
+
+- **`C.text` is the string `"var(--c-text)"`, not a colour.** Colour arithmetic
+  goes through `grad`/`paleGrad`/`tint`. `shade()` needs a real hex and is only
+  for literals, like the per-game accents in the registry.
+- **Font sizes are `rem`.** A `fontSize: 14` is a bug: it ignores the editor's
+  text-size dial. Write `fontSize: "0.875rem"`.
+- **Percentage padding on an absolutely positioned element** resolves against
+  the containing block, not the element. This once made the entire snake
+  invisible, leaving only its eyes.
+- **`100vw` counts the scrollbar**, and the space available to lay out in does
+  not. Size grids as fractions of their container instead.
+- **A percentage width inside a shrink-to-fit flex parent** resolves to zero.
+  Give the parent an explicit `width: 100%`.
+- **The Wordle registry id is `wordle` while its name is "Wordl Unlimited".**
+  Deliberate — see the section above.
+- **`@vercel/analytics` and `@vercel/speed-insights` look unused.** They are
+  mounted once in `App.jsx` and referenced nowhere else. Do not strip them.
+- **Snake segments are keyed by distance from the head.** Keying from the tail
+  also glides, but makes a new segment appear out of nothing at the head the
+  moment an apple is eaten.
+- **No game count in any user-facing copy.** Games get added and a number baked
+  into a title, description or shared link goes stale immediately.
 
 ## Deliberately not built
 

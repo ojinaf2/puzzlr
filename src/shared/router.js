@@ -25,18 +25,26 @@ export const isRoomCode = (s) =>
   s.length === ROOM_CODE_LENGTH &&
   [...s].every((ch) => ROOM_ALPHABET.includes(ch));
 
-/* pathname -> { gameId, roomCode } */
+/* The host/join screen is a URL rather than component state, so refreshing
+   while choosing keeps you there instead of dropping you back into the local
+   game. It cannot be mistaken for a room code: codes are six characters from
+   an alphabet with no lower case in it. */
+export const ONLINE_SEGMENT = "online";
+
+/* pathname -> { gameId, roomCode, mode } */
 export const parsePath = (pathname) => {
   const [gameId = "", raw = ""] = pathname.split("/").filter(Boolean);
-  const roomCode = raw.toUpperCase();
+  const upper = raw.toUpperCase();
   return {
     gameId: gameId || null,
-    roomCode: isRoomCode(roomCode) ? roomCode : null,
+    roomCode: isRoomCode(upper) ? upper : null,
+    mode: raw.toLowerCase() === ONLINE_SEGMENT ? ONLINE_SEGMENT : null,
   };
 };
 
-export const buildPath = (gameId, roomCode) =>
-  !gameId ? "/" : roomCode ? `/${gameId}/${roomCode}` : `/${gameId}`;
+/* `segment` is either a room code or "online"; parsePath sorts out which. */
+export const buildPath = (gameId, segment) =>
+  !gameId ? "/" : segment ? `/${gameId}/${segment}` : `/${gameId}`;
 
 /* Current route, kept in sync with the address bar and the back button. */
 export function useRoute() {
