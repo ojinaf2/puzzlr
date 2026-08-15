@@ -7,6 +7,9 @@ import Imposter from './Imposter.jsx';
 import Hangman from './Hangman.jsx';
 import Snake from './Snake.jsx';
 import Minesweeper from './Minesweeper.jsx';
+/* The identifier cannot start with a digit; the display name still can, and
+   lives in content.js under the id "2048" like every other game's does. */
+import Game2048 from './Game2048.jsx';
 import { CONTENT } from '../content.js';
 
 /* ============================= GAME REGISTRY =============================
@@ -39,9 +42,9 @@ import { CONTENT } from '../content.js';
    a translucent white shape along the top edge, and a darker copy of the
    silhouette offset a couple of units downward for a contact shadow.
 
-   Gradient ids must stay unique across the whole file. All seven icons render
-   on the landing page at once, and duplicate ids would silently make one
-   icon adopt another's colours.
+   Gradient ids must stay unique across the whole file. Every icon renders on
+   the landing page at once, and duplicate ids would silently make one icon
+   adopt another's colours.
 */
 const ENTRIES = [
   {
@@ -71,6 +74,75 @@ const ENTRIES = [
           <rect x="20.6" y="19.3" width="10.8" height="4.2" rx="2.1" />
           <rect x="35.3" y="19.3" width="10.8" height="4.2" rx="2.1" />
         </g>
+      </g>
+    ),
+  },
+  {
+    /* Two small tiles resolving into one wide one — the merge, which is the
+       whole game — climbing the same warm ramp the board uses. */
+    id: "2048", accent: "#e07a3f", Comp: Game2048,
+    icon: (
+      <g>
+        <defs>
+          <linearGradient id="tzA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f6e6cc" /><stop offset="1" stopColor="#dcc09a" /></linearGradient>
+          <linearGradient id="tzB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#eeb87a" /><stop offset="1" stopColor="#d08c42" /></linearGradient>
+          <linearGradient id="tzC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d68a45" /><stop offset="1" stopColor="#a85718" /></linearGradient>
+        </defs>
+        <g fill="rgba(74,53,36,.2)">
+          <rect x="5" y="10" width="19" height="17" rx="5" />
+          <rect x="28" y="10" width="19" height="17" rx="5" />
+          <rect x="5" y="31" width="42" height="17" rx="5" />
+        </g>
+        <rect x="5" y="8" width="19" height="17" rx="5" fill="url(#tzA)" />
+        <rect x="28" y="8" width="19" height="17" rx="5" fill="url(#tzB)" />
+        <rect x="5" y="29" width="42" height="17" rx="5" fill="url(#tzC)" />
+        <g fill="#fff" opacity=".32">
+          <rect x="6.4" y="9.2" width="16.2" height="4.6" rx="2.3" />
+          <rect x="29.4" y="9.2" width="16.2" height="4.6" rx="2.3" />
+          <rect x="6.4" y="30.2" width="39.2" height="4.6" rx="2.3" />
+        </g>
+        <text x="26" y="42.4" textAnchor="middle" fontSize="11.5" fontWeight="800" fill="#fff" fontFamily="'Libre Franklin',sans-serif">2048</text>
+      </g>
+    ),
+  },
+  {
+    id: "minesweeper", accent: "#8a6d52", Comp: Minesweeper,
+    icon: (
+      <g>
+        <defs>
+          <radialGradient id="msB" cx=".34" cy=".28"><stop offset="0" stopColor="#7b6a5c" /><stop offset=".6" stopColor="#3d332c" /><stop offset="1" stopColor="#1d1815" /></radialGradient>
+          <linearGradient id="msT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f0ddc0" /><stop offset="1" stopColor="#cbae87" /></linearGradient>
+        </defs>
+        <rect x="5" y="5" width="19" height="19" rx="4.5" fill="url(#msT)" />
+        <rect x="6.4" y="6.2" width="16.2" height="5" rx="2.5" fill="#fff" opacity=".4" />
+        <rect x="28" y="5" width="19" height="19" rx="4.5" fill="url(#msT)" />
+        <text x="37.5" y="20" textAnchor="middle" fontSize="14" fontWeight="800" fill="#2f6fd0" fontFamily="'Libre Franklin',sans-serif">3</text>
+        <g stroke="#241d18" strokeWidth="3" strokeLinecap="round">
+          <path d="M26 25.5v-3.4M26 47.6v-3.4M14.9 36.8h-3.4M40.5 36.8h-3.4M18.2 29l-2.4-2.4M36.2 47l-2.4-2.4M33.8 29l2.4-2.4M15.8 47l2.4-2.4" />
+        </g>
+        <circle cx="26" cy="36.8" r="8.6" fill="rgba(74,53,36,.22)" transform="translate(0,1.6)" />
+        <circle cx="26" cy="36.8" r="8.6" fill="url(#msB)" />
+        <ellipse cx="22.6" cy="33.4" rx="2.4" ry="1.7" fill="#fff" opacity=".45" transform="rotate(-35 22.6 33.4)" />
+      </g>
+    ),
+  },
+  {
+    id: "snake", accent: "#3f9d5c", Comp: Snake,
+    icon: (
+      <g>
+        <defs>
+          <linearGradient id="snB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#7ada90" /><stop offset="1" stopColor="#2c7c47" /></linearGradient>
+          <radialGradient id="snA" cx=".34" cy=".3"><stop offset="0" stopColor="#ff9c85" /><stop offset=".62" stopColor="#d4432c" /><stop offset="1" stopColor="#7d2415" /></radialGradient>
+        </defs>
+        <path d="M11 40 h13 a6.5 6.5 0 0 0 0-13 h-6 a6.5 6.5 0 0 1 0-13 h12"
+          fill="none" stroke="rgba(74,53,36,.2)" strokeWidth="8.4" strokeLinecap="round" transform="translate(0,2)" />
+        <path d="M11 40 h13 a6.5 6.5 0 0 0 0-13 h-6 a6.5 6.5 0 0 1 0-13 h12"
+          fill="none" stroke="url(#snB)" strokeWidth="8.4" strokeLinecap="round" />
+        <path d="M11 37.6 h13" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity=".3" />
+        <circle cx="31.6" cy="12.2" r="1.35" fill="#173a22" />
+        <circle cx="31.6" cy="16.4" r="1.35" fill="#173a22" />
+        <circle cx="39.5" cy="12" r="6.2" fill="url(#snA)" />
+        <path d="M39.5 6 q1.6-3.4 4.4-3.2" fill="none" stroke="#3f7a35" strokeWidth="1.8" strokeLinecap="round" />
       </g>
     ),
   },
@@ -209,47 +281,6 @@ const ENTRIES = [
         <circle cx="34" cy="23.4" r="7.4" fill="url(#imR)" />
         <path d="M23 45 c0-6.1 4.9-11 11-11 s11 4.9 11 11 z" fill="url(#imR)" />
         <ellipse cx="31.4" cy="20.8" rx="2.3" ry="1.7" fill="#fff" opacity=".38" />
-      </g>
-    ),
-  },
-  {
-    id: "snake", accent: "#3f9d5c", Comp: Snake,
-    icon: (
-      <g>
-        <defs>
-          <linearGradient id="snB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#7ada90" /><stop offset="1" stopColor="#2c7c47" /></linearGradient>
-          <radialGradient id="snA" cx=".34" cy=".3"><stop offset="0" stopColor="#ff9c85" /><stop offset=".62" stopColor="#d4432c" /><stop offset="1" stopColor="#7d2415" /></radialGradient>
-        </defs>
-        <path d="M11 40 h13 a6.5 6.5 0 0 0 0-13 h-6 a6.5 6.5 0 0 1 0-13 h12"
-          fill="none" stroke="rgba(74,53,36,.2)" strokeWidth="8.4" strokeLinecap="round" transform="translate(0,2)" />
-        <path d="M11 40 h13 a6.5 6.5 0 0 0 0-13 h-6 a6.5 6.5 0 0 1 0-13 h12"
-          fill="none" stroke="url(#snB)" strokeWidth="8.4" strokeLinecap="round" />
-        <path d="M11 37.6 h13" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity=".3" />
-        <circle cx="31.6" cy="12.2" r="1.35" fill="#173a22" />
-        <circle cx="31.6" cy="16.4" r="1.35" fill="#173a22" />
-        <circle cx="39.5" cy="12" r="6.2" fill="url(#snA)" />
-        <path d="M39.5 6 q1.6-3.4 4.4-3.2" fill="none" stroke="#3f7a35" strokeWidth="1.8" strokeLinecap="round" />
-      </g>
-    ),
-  },
-  {
-    id: "minesweeper", accent: "#8a6d52", Comp: Minesweeper,
-    icon: (
-      <g>
-        <defs>
-          <radialGradient id="msB" cx=".34" cy=".28"><stop offset="0" stopColor="#7b6a5c" /><stop offset=".6" stopColor="#3d332c" /><stop offset="1" stopColor="#1d1815" /></radialGradient>
-          <linearGradient id="msT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f0ddc0" /><stop offset="1" stopColor="#cbae87" /></linearGradient>
-        </defs>
-        <rect x="5" y="5" width="19" height="19" rx="4.5" fill="url(#msT)" />
-        <rect x="6.4" y="6.2" width="16.2" height="5" rx="2.5" fill="#fff" opacity=".4" />
-        <rect x="28" y="5" width="19" height="19" rx="4.5" fill="url(#msT)" />
-        <text x="37.5" y="20" textAnchor="middle" fontSize="14" fontWeight="800" fill="#2f6fd0" fontFamily="'Libre Franklin',sans-serif">3</text>
-        <g stroke="#241d18" strokeWidth="3" strokeLinecap="round">
-          <path d="M26 25.5v-3.4M26 47.6v-3.4M14.9 36.8h-3.4M40.5 36.8h-3.4M18.2 29l-2.4-2.4M36.2 47l-2.4-2.4M33.8 29l2.4-2.4M15.8 47l2.4-2.4" />
-        </g>
-        <circle cx="26" cy="36.8" r="8.6" fill="rgba(74,53,36,.22)" transform="translate(0,1.6)" />
-        <circle cx="26" cy="36.8" r="8.6" fill="url(#msB)" />
-        <ellipse cx="22.6" cy="33.4" rx="2.4" ry="1.7" fill="#fff" opacity=".45" transform="rotate(-35 22.6 33.4)" />
       </g>
     ),
   },

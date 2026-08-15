@@ -41,8 +41,8 @@ src/
   games/
     index.jsx         THE REGISTRY. Adding a game means one entry here.
     <Game>.jsx        one file per game
-    <game>Rules.js    pure rules for Snake and Minesweeper, split out so node
-                      can test them without a browser
+    <game>Rules.js    pure rules for Snake, Minesweeper and 2048, split out so
+                      node can test them without a browser
 scripts/              build-time generators, never shipped to the browser
 test/                 node test suites for src/, no framework
 server/
@@ -167,9 +167,9 @@ hangman. Its dictionaries are devDependencies, so nothing new ships.
     only the pressed state. The press lives in CSS `:active` in `Puzzlr.jsx`,
     never in `onMouseDown` handlers — those never fire for a finger and can
     leave a control stuck down if the pointer leaves mid-tap.
-  - Icon gradients need ids unique across the whole of `games/index.jsx`. All
-    seven render on the landing page at once, and a duplicate id silently
-    makes one icon adopt another's colours.
+  - Icon gradients need ids unique across the whole of `games/index.jsx`. They
+    all render on the landing page at once, and a duplicate id silently makes
+    one icon adopt another's colours.
 - Times New Roman for headings and the logo, Libre Franklin for everything else.
 - Animations live in a `<style>` block inside the game that uses them, and are
   always disabled under `prefers-reduced-motion`.
@@ -222,15 +222,17 @@ Miniflare and plays real games over websockets. Run them after touching
 discarded on start and untimed quizzes rejecting every answer.
 
 `npm test` runs the browser-side suites — daily bookkeeping, Snake's movement
-rules and Minesweeper's mechanics. They are the exception to the rule below,
-and the reason each is an exception is the same: the interesting cases cannot
-be reached by clicking. Daily's span days, Snake's depend on where an apple
-randomly spawned, and Minesweeper's need many random boards to show that first
-click safety and mine counts hold in general rather than once.
+rules, Minesweeper's mechanics and 2048's sliding and merging. They are the
+exception to the rule below, and the reason each is an exception is the same:
+the interesting cases cannot be reached by clicking. Daily's span days, Snake's
+depend on where an apple randomly spawned, Minesweeper's need many random
+boards to show that first click safety and mine counts hold in general rather
+than once, and 2048's turn on specific rows — `2 2 2 2` has to give `4 4` and
+never `8`, and waiting for that row to turn up by playing is luck.
 
-That is also why Snake and Minesweeper keep their rules in a plain `.js`
-module beside the component. Node cannot import JSX, so rules buried in a
-`.jsx` file cannot be tested at all.
+That is also why those three keep their rules in a plain `.js` module beside
+the component. Node cannot import JSX, so rules buried in a `.jsx` file cannot
+be tested at all.
 
 For the browser, drive the real UI rather than trusting a build to pass. Note
 that two tabs on the same origin share `localStorage`, so they are the same

@@ -11,6 +11,21 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://playpuzzlr.com/2048</loc>
+    <lastmod>2026-08-15</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playpuzzlr.com/minesweeper</loc>
+    <lastmod>2026-08-15</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playpuzzlr.com/snake</loc>
+    <lastmod>2026-08-15</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://playpuzzlr.com/wavelength</loc>
     <lastmod>2026-08-15</lastmod>
     <priority>0.8</priority>
@@ -37,16 +52,6 @@
   </url>
   <url>
     <loc>https://playpuzzlr.com/imposter</loc>
-    <lastmod>2026-08-15</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://playpuzzlr.com/snake</loc>
-    <lastmod>2026-08-15</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://playpuzzlr.com/minesweeper</loc>
     <lastmod>2026-08-15</lastmod>
     <priority>0.8</priority>
   </url>

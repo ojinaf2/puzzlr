@@ -19,14 +19,20 @@ export const MAX_SCORE = CELLS - 1;
 
 /* `ms` is the gap between moves, so a bigger number is a slower snake.
 
-   These were far too quick on every setting: the first pass treated the old
-   Hard as the ceiling, when in practice even the old Easy was faster than a
-   person can plan a turn on a 15-wide board. The whole scale moved down, and
-   the new Hard is a shade gentler than the old Easy was. */
+   An earlier pass slowed the whole scale down because every setting was
+   quicker than a person can plan a turn on a 15-wide board. That went a little
+   too far, so all three have been nudged back up: Easy and Medium only
+   slightly, since their job is to stay comfortable, and Hard by more, because
+   it is the only one that is supposed to push you.
+
+   The gap between the settings widens as it goes, which is the point — the
+   step up to Hard should feel like a step up. Anything under about 130ms
+   stops being difficulty and starts being reaction time, so that is the floor
+   worth respecting if these move again. */
 export const SPEEDS = [
-  { key: "easy", name: "Easy", blurb: "A steady pace to learn on", ms: 320 },
-  { key: "medium", name: "Medium", blurb: "A bit faster", ms: 240 },
-  { key: "hard", name: "Hard", blurb: "Quick — you have to plan ahead", ms: 185 },
+  { key: "easy", name: "Easy", blurb: "A steady pace to learn on", ms: 290 },
+  { key: "medium", name: "Medium", blurb: "A bit faster", ms: 210 },
+  { key: "hard", name: "Hard", blurb: "Quick — you have to plan ahead", ms: 150 },
 ];
 
 export const DIRS = {
