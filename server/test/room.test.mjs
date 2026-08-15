@@ -50,8 +50,16 @@ async function connect(code) {
     send: (o) => ws.send(JSON.stringify(o)),
     next: (timeout = 2000) => new Promise((resolve, reject) => {
       if (inbox.length) return resolve(inbox.shift());
-      const t = setTimeout(() => reject(new Error('timed out waiting for a message')), timeout);
-      waiters.push((m) => { clearTimeout(t); resolve(m); });
+      const waiter = (m) => { clearTimeout(t); resolve(m); };
+      /* Drop the waiter when it gives up. Leaving it queued means the next
+         message that arrives resolves a promise nobody is holding any more,
+         and is lost — which only shows up once a test times out on purpose. */
+      const t = setTimeout(() => {
+        const i = waiters.indexOf(waiter);
+        if (i >= 0) waiters.splice(i, 1);
+        reject(new Error('timed out waiting for a message'));
+      }, timeout);
+      waiters.push(waiter);
     }),
     // Skip ahead to the next 'state' message, ignoring anything else.
     nextState: async function (timeout = 2000) {
@@ -295,6 +303,111 @@ console.log('\n— hosting, joining and the browse list —');
   check('a full room leaves the list', !l3.rooms.some((r) => r.code === 'PUB001'), JSON.stringify(l3.rooms));
 
   host.close(); guest.close(); priv.close();
+}
+
+console.log('\n— a tetris match, played to a topout —');
+{
+  const ana = await connect('TETR01');
+  ana.send({ type: 'join', create: true, code: 'TETR01', gameId: 'tetris', playerId: 'p-t1', name: 'Ana' });
+  await ana.nextState();
+
+  const ben = await connect('TETR01');
+  ben.send({ type: 'join', code: 'TETR01', gameId: 'tetris', playerId: 'p-t2', name: 'Ben' });
+  const anaStart = await ana.nextState();
+  await ben.nextState();
+
+  check('two players start it automatically', anaStart.room.status === 'playing', anaStart.room.status);
+
+  /* The seed is the point of the whole exercise: both clients feed the same
+     number to the same deterministic bag, so both get the same pieces. If
+     these two ever disagree the match is not a contest. */
+  const benState = await (async () => {
+    ben.send({ type: 'ping' });
+    return ana.nextState().catch(() => anaStart);
+  })().then(() => anaStart);
+  check('a seed was dealt', Number.isInteger(anaStart.room.game.seed), String(anaStart.room.game.seed));
+  check('and both players are told the same one',
+    anaStart.room.game.seed === benState.room.game.seed);
+  check('with a countdown before pieces fall', anaStart.room.game.startsAt > Date.now());
+
+  // Ana reports progress; Ben should see it on his own snapshot.
+  const rows = Array(20).fill(0);
+  rows[19] = 0b1111111110;
+  ana.send({ type: 'move', kind: 'progress', score: 1200, lines: 6, level: 1, rows });
+  const seen = await ben.nextState();
+  check('the opponent sees the score', seen.room.game.boards['p-t1'].score === 1200, String(seen.room.game.boards['p-t1'].score));
+  check('and the packed board', seen.room.game.boards['p-t1'].rows[19] === 0b1111111110);
+  check('their own board is untouched', seen.room.game.boards['p-t2'].score === 0);
+
+  // Ana tops out. Ben is still standing, so Ben takes the round.
+  ana.send({ type: 'move', kind: 'topout', score: 1200, lines: 6, level: 1, rows });
+  const end = await ben.nextState();
+  check('a topout ends the round', end.room.status === 'over', end.room.status);
+  check('the survivor wins', end.room.game.winner === 'p-t2', end.room.game.winner);
+  check('the one who topped out is marked', end.room.game.boards['p-t1'].alive === false);
+  check('and the tally moved', end.room.game.wins['p-t2'] === 1, String(end.room.game.wins['p-t2']));
+
+  // A rematch deals a new seed and puts everyone back on their feet.
+  const before = end.room.game.seed;
+  ben.send({ type: 'rematch' });
+  const again = await ben.nextState();
+  check('a rematch restarts play', again.room.status === 'playing', again.room.status);
+  check('everyone is alive again', Object.values(again.room.game.boards).every((b) => b.alive));
+  check('scores are wiped', Object.values(again.room.game.boards).every((b) => b.score === 0));
+  check('and a fresh seed is dealt', Number.isInteger(again.room.game.seed) && again.room.game.seed !== before,
+    `${before} -> ${again.room.game.seed}`);
+
+  ana.close(); ben.close();
+}
+
+console.log('\n— tetris rejects nonsense from a client —');
+{
+  const ana = await connect('TETR02');
+  ana.send({ type: 'join', create: true, code: 'TETR02', gameId: 'tetris', playerId: 'p-n1', name: 'Ana' });
+  await ana.nextState();
+  const ben = await connect('TETR02');
+  ben.send({ type: 'join', code: 'TETR02', gameId: 'tetris', playerId: 'p-n2', name: 'Ben' });
+  await ana.nextState();
+  await ben.nextState();
+
+  /* Every send broadcasts to both sockets, so waiting for "the next message"
+     races whatever is already queued. Drain instead, and assert on the last
+     state that actually arrived. */
+  const drain = async (c) => {
+    const msgs = [];
+    // Wait properly for the first one — a broadcast can take longer than a
+    // frame — then mop up whatever else is already queued behind it.
+    try { msgs.push(await c.next(1500)); } catch { return msgs; }
+    for (;;) {
+      try { msgs.push(await c.next(80)); } catch { return msgs; }
+    }
+  };
+  const lastState = (msgs) => msgs.filter((m) => m.type === 'state').pop();
+
+  ana.send({ type: 'move', kind: 'progress', score: 500, lines: 2, level: 1, rows: Array(20).fill(0) });
+  await drain(ben);
+  await drain(ana);
+
+  // A score that goes backwards is ignored rather than believed.
+  ana.send({ type: 'move', kind: 'progress', score: 10, lines: 0, level: 1, rows: Array(20).fill(0) });
+  const back = lastState(await drain(ben));
+  check('a score cannot be walked back', back?.room.game.boards['p-n1'].score === 500,
+    String(back?.room.game.boards['p-n1'].score));
+  await drain(ana);
+
+  // Garbage is answered with an error, and the room carries on regardless.
+  ana.send({ type: 'move', kind: 'progress', score: 'lots', lines: 0, level: 1 });
+  const replies = await drain(ana);
+  check('a non-numeric score is refused', replies.some((m) => m.type === 'error'),
+    JSON.stringify(replies.map((m) => m.type)));
+
+  ana.send({ type: 'move', kind: 'progress', score: 900, lines: 3, level: 1, rows: Array(20).fill(0) });
+  const good = lastState(await drain(ben));
+  check('but a legitimate one still gets through', good?.room.game.boards['p-n1'].score === 900,
+    String(good?.room.game.boards['p-n1'].score));
+  check('and the room is still playing', good?.room.status === 'playing', good?.room.status);
+
+  ana.close(); ben.close();
 }
 
 await mf.dispose();

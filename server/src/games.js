@@ -716,4 +716,131 @@ const wavelength = {
   },
 };
 
-export const GAMES = { tictactoe, connect4, wordle, flagquiz, wavelength };
+/* -------------------------------- tetris --------------------------------
+   Two boards, one piece sequence, last one standing.
+
+   HOW MUCH OF THIS THE SERVER CAN ACTUALLY REFEREE
+   Every other game here is turn-based, so the object validates each move and
+   an edited client gains nothing. Tetris is real time: refereeing it properly
+   would mean streaming every keypress to the object and running the
+   simulation there, which is a round trip per input and would ruin the feel
+   of the one game on this site that depends on feel.
+
+   So the split is deliberate, and worth being straight about:
+
+     the server owns   the seed, so both players get the identical piece
+                       sequence — the thing that actually makes a versus
+                       match fair; when the match starts and ends; and the
+                       verdict, which is simply who reported topping out
+                       first.
+     the client owns   its own board and score, which it reports.
+
+   That means a modified client could inflate its score or decline to admit it
+   topped out. It cannot deal itself easier pieces, which is the cheat that
+   would matter. For a match played with a friend over an invite link, that is
+   the right trade; it is not a ranked ladder and should not pretend to be.
+   Values are still range-checked and forced to move in one direction, so a
+   broken or malicious client cannot corrupt the room for the other player. */
+
+const TETRIS_ROWS = 20;
+const TETRIS_COUNTDOWN_MS = 3000;   // both players see the same "get ready"
+
+const freshTetrisBoards = (room) => Object.fromEntries(room.players.map((p) => [p.id, {
+  score: 0, lines: 0, level: 1, alive: true, finishedAt: null,
+  rows: Array(TETRIS_ROWS).fill(0),
+}]));
+
+// Ten columns packed one bit per cell: enough for the opponent's thumbnail,
+// and a twentieth of the size of sending the cells themselves.
+const validRows = (rows) =>
+  Array.isArray(rows) && rows.length === TETRIS_ROWS
+  && rows.every((r) => Number.isInteger(r) && r >= 0 && r < 1024);
+
+const count = (v) => (Number.isInteger(v) && v >= 0 && v < 1e9 ? v : null);
+
+const tetris = {
+  maxPlayers: 2,
+  minPlayers: 2,
+  autoStart: true,          // nothing to configure, so it begins on arrival
+
+  create: () => ({
+    seed: null,
+    startsAt: null,
+    boards: {},
+    winner: null,
+    draw: false,
+    roundNo: 0,
+    wins: {},
+  }),
+
+  start(room, prev) {
+    return {
+      /* The one number that matters. Both browsers feed it to the same
+         deterministic 7-bag and therefore see the same pieces in the same
+         order, which is what makes the match a contest rather than a lottery. */
+      seed: Math.floor(Math.random() * 2 ** 31) >>> 0,
+      startsAt: Date.now() + TETRIS_COUNTDOWN_MS,
+      boards: freshTetrisBoards(room),
+      winner: null,
+      draw: false,
+      roundNo: (prev?.roundNo ?? 0) + 1,
+      wins: carryScores(room, prev),
+    };
+  },
+
+  move(room, player, msg) {
+    const g = room.game;
+    if (g.winner || g.draw) return { error: 'That round is over.' };
+
+    const board = g.boards[player.id];
+    if (!board) return { error: 'You are not playing this round.' };
+    if (!board.alive) return { error: 'You have already topped out.' };
+
+    if (msg.kind === 'progress') {
+      const score = count(msg.score), lines = count(msg.lines), level = count(msg.level);
+      if (score === null || lines === null || level === null) return { error: 'Bad progress.' };
+      /* Only ever upwards. A client that resets or rewinds its own numbers
+         mid-round is either broken or lying, and either way the opponent
+         should not watch the score go backwards. */
+      board.score = Math.max(board.score, score);
+      board.lines = Math.max(board.lines, lines);
+      board.level = Math.max(board.level, level);
+      if (validRows(msg.rows)) board.rows = msg.rows;
+      return {};
+    }
+
+    if (msg.kind === 'topout') {
+      board.alive = false;
+      board.finishedAt = Date.now();
+      const score = count(msg.score);
+      if (score !== null) board.score = Math.max(board.score, score);
+      if (validRows(msg.rows)) board.rows = msg.rows;
+
+      // Last one standing. With two players the first to go hands it over.
+      const others = room.players.filter((p) => p.id !== player.id);
+      const survivor = others.find((p) => g.boards[p.id]?.alive);
+      if (survivor) {
+        g.winner = survivor.id;
+        g.wins[survivor.id] = (g.wins[survivor.id] ?? 0) + 1;
+      } else {
+        g.draw = true;                     // everyone gone, nobody scores
+      }
+      return { over: true };
+    }
+
+    return { error: 'Unknown move.' };
+  },
+
+  forfeit(room, quitter) {
+    const g = room.game;
+    if (g.winner || g.draw) return {};
+    const other = room.players.find((p) => p.id !== quitter.id);
+    if (!other) return {};
+    g.winner = other.id;
+    g.forfeitedBy = quitter.id;
+    g.wins[other.id] = (g.wins[other.id] ?? 0) + 1;
+    return { over: true };
+  },
+};
+
+export const GAMES = { tictactoe, connect4, wordle, flagquiz, wavelength, tetris };

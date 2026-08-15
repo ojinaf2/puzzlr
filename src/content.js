@@ -83,8 +83,8 @@ export const CONTENT = {
     tetris: {
       name: "Tetris",
       tag: "Stack, clear, survive",
-      blurb: "Fit the falling pieces together and clear lines before the stack reaches the top. Hold a piece for later, plan with the preview, and clear four rows at once for the big score.",
-      players: "1 player",
+      blurb: "Fit the falling pieces together and clear lines before the stack reaches the top. Play on your own, or race a friend online over an invite link — same pieces, both boards, last one standing wins.",
+      players: "1-2 players",
     },
   },
   intros: {

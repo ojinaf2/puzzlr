@@ -1,6 +1,6 @@
 # Puzzlr
 
-A hub of small browser games, five of which can also be played online with
+A hub of small browser games, several of which can also be played online with
 friends over an invite link. No sign-up, no accounts, no database.
 Light and dark themes, following the device until the visitor picks one.
 
@@ -184,6 +184,20 @@ rather than trusting the browser not to draw them, and Wavelength sends the
 target only to the clue-giver.
 
 **Do not move rules into the browser** to save a round trip.
+
+Tetris is the one deliberate exception, and it is worth understanding before
+copying the pattern. It is real time, so refereeing it the way the others are
+refereed would mean streaming every keypress to the object and running the
+simulation there — a round trip per input, in the one game on this site that
+lives or dies on feel. Instead the server owns the **seed**, which is what
+makes a match fair (both players get the identical piece sequence from the
+same deterministic 7-bag), plus the match lifecycle and the verdict. Score and
+board are reported by the client.
+
+So an edited Tetris client could inflate its score or decline to admit it
+topped out. It cannot deal itself easier pieces. That is the right trade for a
+game played with a friend over an invite link, and the wrong one for anything
+resembling a leaderboard — which is a reason not to add one.
 
 ## Flags
 

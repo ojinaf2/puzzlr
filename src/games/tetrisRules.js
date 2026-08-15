@@ -159,6 +159,14 @@ export const pieceCells = (p) => (p ? cellsOf(p.type, p.rot, p.x, p.y) : []);
 
 const emptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 
+/* The settled board as one integer per row, ten bits wide. Enough to draw an
+   opponent's thumbnail in an online match, and a twentieth the size of
+   sending the cells themselves — which matters when it goes over the wire on
+   every piece that lands. Colours are dropped deliberately: at thumbnail size
+   they are noise. */
+export const packRows = (board) =>
+  board.map((row) => row.reduce((bits, cell, x) => (cell ? bits | (1 << x) : bits), 0));
+
 /* A cell is blocked if it is off the sides, below the floor, or already
    filled. Above the top is deliberately allowed — a piece spawns partly
    off-screen and has to be able to sit there. */

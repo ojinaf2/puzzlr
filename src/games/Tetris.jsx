@@ -1,25 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, paleGrad, EASE, SPRING } from '../shared/theme.js';
+import { C, SHADOW, GLOSS, GLOSS_SOFT, paleGrad, SPRING } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
+import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
+import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
-  cellsOf, pieceCells, gravityMs,
+  cellsOf, pieceCells, gravityMs, packRows,
 } from './tetrisRules.js';
 
 /* ============================= TETRIS =============================
    The engine is in ./tetrisRules.js — pure, seedable and node-tested. This
-   file is the board, the input and the timing, and it holds no rules of its
-   own beyond how long a thing takes.
+   file is the board, the input and the timing.
+
+   THE ENGINE IS A HOOK, NOT A COMPONENT
+   `useTetrisEngine` owns the state, the loop and the controls and knows
+   nothing about who is watching. Local play and an online match are the same
+   engine with different chrome around it, differing only in where the seed
+   comes from and who is told about it. That split is what made the online
+   mode a wrapper rather than a second copy of the game.
 
    THE LOOP IS A REF, NOT STATE
    requestAnimationFrame runs sixty times a second and almost every frame
    changes nothing, so the loop reads and writes `gameRef` and only calls
    setState when the state object actually changes. Doing the timing inside a
-   setState updater instead would be wrong twice over: React may call an
-   updater more than once for the same frame, which would double-count
-   gravity, and it would re-render on every frame regardless.               */
+   setState updater would be wrong twice over: React may call an updater more
+   than once for the same frame, which double-counts gravity, and it would
+   re-render on every frame regardless.                                     */
 
 const LOCK_MS = 500;          // grace to slide or spin a landed piece
 const LOCK_RESETS = 15;       // ...but not forever
@@ -40,6 +48,8 @@ const readBest = () => {
 const writeBest = (v) => {
   try { localStorage.setItem(BEST_KEY, String(v)); } catch { /* private mode */ }
 };
+
+const randomSeed = () => (Math.random() * 2 ** 31) >>> 0;
 
 const styleBlock = `
   .tt-wrap {
@@ -72,10 +82,7 @@ const styleBlock = `
      rather than the whole line blinking at once. */
   .tt-clearing { animation: tt-flash ${CLEAR_MS}ms ease-out both }
 
-  @keyframes tt-settle {
-    0%   { filter: brightness(1.9) }
-    100% { filter: brightness(1) }
-  }
+  @keyframes tt-settle { 0% { filter: brightness(1.9) } 100% { filter: brightness(1) } }
   .tt-settle { animation: tt-settle 160ms ease-out }
 
   @keyframes tt-buzz {
@@ -98,112 +105,43 @@ const styleBlock = `
   @keyframes tt-levelup { 0%,100% { opacity: 0 } 30% { opacity: 1 } }
   .tt-levelup { animation: tt-levelup 700ms ease-out }
 
+  @keyframes tt-count { 0% { transform: scale(.5); opacity: 0 } 30% { transform: scale(1); opacity: 1 } 100% { transform: scale(1.4); opacity: 0 } }
+  .tt-count { animation: tt-count 900ms ease-out both }
+
   @media (prefers-reduced-motion: reduce) {
     .tt-clearing { animation: none !important; opacity: .25 }
-    .tt-settle, .tt-buzz, .tt-levelup { animation: none !important }
+    .tt-settle, .tt-buzz, .tt-levelup, .tt-count { animation: none !important }
     /* The badge still appears — it is information, not decoration — it just
        does not fly around to do it. */
     .tt-tetris { animation: none !important; opacity: 1 }
   }
 `;
 
-/* ----------------------------------------------------------------- pieces */
-const cellFace = (type) => ({
-  background: `linear-gradient(160deg, ${COLOURS[type]}, ${COLOURS[type]})`,
-  boxShadow: `inset 0 2px 0 rgba(255,255,255,.32), inset 0 -2px 0 rgba(0,0,0,.22)`,
-});
-
-/* The hold slot and the queue, drawn tight to the piece's own bounding box so
-   an I and an O both look centred rather than floating in a 4x4 box. */
-function MiniPiece({ type, size = 13 }) {
-  if (!type) return <div style={{ height: size * 2 }} />;
-  const cells = cellsOf(type, 0, 0, 0);
-  const xs = cells.map(([x]) => x), ys = cells.map(([, y]) => y);
-  const x0 = Math.min(...xs), y0 = Math.min(...ys);
-  const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
-  return (
-    <div style={{
-      display: "grid", gap: 2, justifyContent: "center",
-      gridTemplateColumns: `repeat(${w}, ${size}px)`,
-      gridTemplateRows: `repeat(${h}, ${size}px)`,
-    }}>
-      {Array.from({ length: w * h }).map((_, i) => {
-        const x = i % w, y = Math.floor(i / w);
-        const on = cells.some(([cx, cy]) => cx - x0 === x && cy - y0 === y);
-        return <div key={i} style={{
-          borderRadius: 3,
-          ...(on ? cellFace(type) : { background: "transparent" }),
-        }} />;
-      })}
-    </div>
-  );
-}
-
-function Panel({ label, children, style = {} }) {
-  return (
-    <div style={{
-      background: paleGrad(C.panel), borderRadius: 14, padding: "9px 10px",
-      boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`, textAlign: "center", ...style,
-    }}>
-      <div style={{
-        fontSize: "0.625rem", letterSpacing: ".16em", textTransform: "uppercase",
-        color: C.dim, fontWeight: 700, marginBottom: 4,
-      }}>{label}</div>
-      {children}
-    </div>
-  );
-}
-
-const statValue = (big) => ({
-  fontSize: big ? "1.5rem" : "1.0625rem", fontWeight: 800, lineHeight: 1.1,
-  fontVariantNumeric: "tabular-nums", color: C.text,
-});
-
-/* A chunky control that repeats while held, for the on-screen pad. */
-function PadBtn({ label, icon, onPress, onRelease, wide }) {
-  return (
-    <button
-      className="btn3d"
-      onPointerDown={(e) => { e.preventDefault(); onPress(); }}
-      onPointerUp={() => onRelease?.()}
-      onPointerLeave={() => onRelease?.()}
-      onPointerCancel={() => onRelease?.()}
-      onContextMenu={(e) => e.preventDefault()}
-      aria-label={label}
-      style={{
-        flex: wide ? "1.4 1 0" : "1 1 0", height: 52, border: "none", borderRadius: 13,
-        background: paleGrad(C.panel2), color: C.text, cursor: "pointer",
-        fontFamily: "inherit", fontSize: "0.75rem", fontWeight: 700,
-        display: "grid", placeItems: "center", gap: 2,
-        boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
-        touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
-        WebkitTapHighlightColor: "transparent",
-      }}>
-      {icon}
-      <span style={{ fontSize: "0.625rem", color: C.dim, letterSpacing: ".04em" }}>{label}</span>
-    </button>
-  );
-}
-
-const Arrow = ({ rotate: r = 0 }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-    style={{ transform: `rotate(${r}deg)` }}>
-    <path d="M12 5v14M5 12l7 7 7-7" />
-  </svg>
-);
-
-export default function Tetris() {
-  const [game, setGame] = useState(() => newGame((Math.random() * 2 ** 31) >>> 0));
+/* ------------------------------------------------------------- the engine */
+function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
+  const [game, setGame] = useState(() => newGame(seed));
   const gameRef = useRef(game);
-  const [best, setBest] = useState(readBest);
   const [buzz, setBuzz] = useState(0);
   const [levelUp, setLevelUp] = useState(0);
   const [settle, setSettle] = useState(null);
 
   const acc = useRef({ drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 });
   const touch = useRef(null);
-  const prevLevel = useRef(game.level);
+  const prevLevel = useRef(1);
+  const cb = useRef({ onProgress, onOver });
+  cb.current = { onProgress, onOver };
+
+  /* The seed is the whole identity of a game. Local play bumps it to restart;
+     online play is handed a new one by the server on a rematch. Either way,
+     a new seed means a new board. */
+  useEffect(() => {
+    const fresh = newGame(seed);
+    acc.current = { drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
+    prevLevel.current = 1;
+    setSettle(null);
+    gameRef.current = fresh;
+    setGame(fresh);
+  }, [seed]);
 
   const apply = useCallback((fn) => {
     const next = fn(gameRef.current);
@@ -219,24 +157,19 @@ export default function Tetris() {
   }, []);
 
   const doMove = useCallback((dx) => {
-    apply((g) => {
-      const next = moveBy(g, dx, 0);
-      if (next !== g) bumpLock();
-      return next;
-    });
-  }, [apply, bumpLock]);
+    if (!active) return;
+    apply((g) => { const n = moveBy(g, dx, 0); if (n !== g) bumpLock(); return n; });
+  }, [apply, bumpLock, active]);
 
   const doRotate = useCallback((dir) => {
-    apply((g) => {
-      const next = rotate(g, dir);
-      if (next !== g) bumpLock();
-      return next;
-    });
-  }, [apply, bumpLock]);
+    if (!active) return;
+    apply((g) => { const n = rotate(g, dir); if (n !== g) bumpLock(); return n; });
+  }, [apply, bumpLock, active]);
 
-  const doHold = useCallback(() => apply((g) => holdPiece(g)), [apply]);
+  const doHold = useCallback(() => { if (active) apply((g) => holdPiece(g)); }, [apply, active]);
 
   const doHardDrop = useCallback(() => {
+    if (!active) return;
     apply((g) => {
       if (g.status !== "playing" || !g.piece) return g;
       setSettle({ cells: pieceCells({ ...g.piece, y: ghostY(g) }).map(([x, y]) => `${x},${y}`), id: Date.now() });
@@ -244,20 +177,19 @@ export default function Tetris() {
       a.lock = 0; a.resets = 0; a.drop = 0;
       return hardDrop(g);
     });
-  }, [apply]);
+  }, [apply, active]);
 
-  const restart = useCallback(() => {
-    acc.current = { drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
-    prevLevel.current = 1;
-    setSettle(null);
-    const fresh = newGame((Math.random() * 2 ** 31) >>> 0);
-    gameRef.current = fresh;
-    setGame(fresh);
-  }, []);
+  const setDir = useCallback((dir) => {
+    const a = acc.current;
+    if (dir === 0) { a.dir = 0; return; }
+    if (a.dir !== dir) { a.dir = dir; a.das = 0; a.arr = 0; doMove(dir); }
+  }, [doMove]);
 
-  /* ------------------------------------------------------------- the loop */
+  const setSoft = useCallback((on) => { acc.current.soft = on; }, []);
+
+  /* --------------------------------------------------------------- loop */
   useEffect(() => {
-    if (game.status === "over") return;
+    if (!active || game.status === "over") return;
     let raf = 0;
     let last = performance.now();
 
@@ -279,7 +211,6 @@ export default function Tetris() {
           a.drop = 0; a.lock = 0; a.resets = 0;
         }
       } else {
-        // Horizontal auto-repeat, once the initial delay is served.
         if (a.dir) {
           a.das += dt;
           if (a.das >= DAS_MS) {
@@ -318,7 +249,7 @@ export default function Tetris() {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [game.status]);
+  }, [active, game.status]);
 
   /* The settle highlight is a flash, not a state — drop it once it has run. */
   useEffect(() => {
@@ -335,22 +266,22 @@ export default function Tetris() {
     if (game.level > prevLevel.current) { prevLevel.current = game.level; setLevelUp((n) => n + 1); }
   }, [game.level]);
 
-  useEffect(() => {
-    if (game.score > best) { setBest(game.score); writeBest(game.score); }
-  }, [game.score, best]);
+  /* The board is a new array on every lock and every clear, which makes it
+     the natural heartbeat to report on — a few times a second at most, rather
+     than per frame. */
+  useEffect(() => { cb.current.onProgress?.(gameRef.current); }, [game.board]);
+  useEffect(() => { if (game.status === "over") cb.current.onOver?.(gameRef.current); }, [game.status]);
 
   /* ------------------------------------------------------------ keyboard */
   useEffect(() => {
+    if (!active) return;
     const press = (k) => {
-      const a = acc.current;
       switch (k) {
-        case "arrowleft": case "a":
-          if (a.dir !== -1) { a.dir = -1; a.das = 0; a.arr = 0; doMove(-1); } break;
-        case "arrowright": case "d":
-          if (a.dir !== 1) { a.dir = 1; a.das = 0; a.arr = 0; doMove(1); } break;
+        case "arrowleft": case "a": setDir(-1); break;
+        case "arrowright": case "d": setDir(1); break;
         case " ": case "spacebar": doRotate(1); break;
         case "z": doRotate(-1); break;
-        case "arrowdown": case "s": a.soft = true; break;
+        case "arrowdown": case "s": setSoft(true); break;
         case "arrowup": doHardDrop(); break;
         case "c": case "shift": doHold(); break;
         default: break;
@@ -358,9 +289,9 @@ export default function Tetris() {
     };
     const release = (k) => {
       const a = acc.current;
-      if (k === "arrowleft" || k === "a") { if (a.dir === -1) a.dir = 0; }
-      else if (k === "arrowright" || k === "d") { if (a.dir === 1) a.dir = 0; }
-      else if (k === "arrowdown" || k === "s") a.soft = false;
+      if (k === "arrowleft" || k === "a") { if (a.dir === -1) setDir(0); }
+      else if (k === "arrowright" || k === "d") { if (a.dir === 1) setDir(0); }
+      else if (k === "arrowdown" || k === "s") setSoft(false);
     };
 
     const onDown = (e) => {
@@ -372,12 +303,9 @@ export default function Tetris() {
       if (e.repeat) return;        // the loop does its own auto-repeat
       press(k);
     };
-    const onUp = (e) => {
-      const k = e.key.toLowerCase();
-      if (KEY_SET.has(k)) release(k);
-    };
+    const onUp = (e) => { const k = e.key.toLowerCase(); if (KEY_SET.has(k)) release(k); };
     /* Losing focus mid-hold would otherwise leave a direction stuck down. */
-    const onBlur = () => { acc.current.dir = 0; acc.current.soft = false; };
+    const onBlur = () => { setDir(0); setSoft(false); };
 
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);
@@ -387,55 +315,295 @@ export default function Tetris() {
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [doMove, doRotate, doHold, doHardDrop]);
+  }, [active, setDir, setSoft, doRotate, doHold, doHardDrop]);
 
   /* --------------------------------------------------------------- touch */
-  const onTouchStart = (e) => {
-    const t = e.touches[0];
-    touch.current = { x: t.clientX, y: t.clientY, at: performance.now(), moved: false };
-  };
-  const onTouchMove = (e) => {
-    const s = touch.current;
-    if (!s) return;
-    const t = e.touches[0];
-    const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy)) {
-      doMove(dx > 0 ? 1 : -1);
-      s.x = t.clientX;            // let a continued drag keep stepping
-      s.moved = true;
-    } else if (dy > SWIPE_PX * 1.6 && Math.abs(dy) > Math.abs(dx)) {
-      acc.current.soft = true;    // dragged downwards: fall faster
-      s.moved = true;
-    }
-    // A press held still on the board is a soft drop.
-    if (!s.moved && performance.now() - s.at > TAP_MS) acc.current.soft = true;
-  };
-  const onTouchEnd = () => {
-    const s = touch.current;
-    touch.current = null;
-    acc.current.soft = false;
-    if (!s) return;
-    if (!s.moved && performance.now() - s.at < TAP_MS) doRotate(1);
+  const boardTouch = {
+    onTouchStart: (e) => {
+      const t = e.touches[0];
+      touch.current = { x: t.clientX, y: t.clientY, at: performance.now(), moved: false };
+    },
+    onTouchMove: (e) => {
+      const s = touch.current;
+      if (!s) return;
+      const t = e.touches[0];
+      const dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy)) {
+        doMove(dx > 0 ? 1 : -1);
+        s.x = t.clientX;            // let a continued drag keep stepping
+        s.moved = true;
+      } else if (dy > SWIPE_PX * 1.6 && Math.abs(dy) > Math.abs(dx)) {
+        setSoft(true);              // dragged downwards: fall faster
+        s.moved = true;
+      }
+      if (!s.moved && performance.now() - s.at > TAP_MS) setSoft(true);
+    },
+    onTouchEnd: () => {
+      const s = touch.current;
+      touch.current = null;
+      setSoft(false);
+      if (!s) return;
+      if (!s.moved && performance.now() - s.at < TAP_MS) doRotate(1);
+    },
   };
 
-  /* ---------------------------------------------------------------- view
-     The board plus whatever is floating above it, flattened into one grid so
-     the renderer does not have to think about layers. */
-  const g = game;
-  const view = g.board.map((row) => row.map((t) => (t ? { type: t } : null)));
-  const clearing = new Set(g.pending || []);
+  return {
+    game, buzz, levelUp, settle, boardTouch,
+    actions: { setDir, setSoft, doRotate, doHold, doHardDrop },
+  };
+}
 
-  if (g.piece && g.status === "playing") {
-    const gy = ghostY(g);
-    for (const [x, y] of pieceCells({ ...g.piece, y: gy })) {
-      if (y >= 0 && y < ROWS && !view[y][x]) view[y][x] = { type: g.piece.type, ghost: true };
+const KEY_SET = new Set([
+  "arrowleft", "arrowright", "arrowup", "arrowdown",
+  "a", "d", "s", "z", "c", "shift", " ", "spacebar",
+]);
+
+/* ---------------------------------------------------------------- pieces */
+const cellFace = (type) => ({
+  background: `linear-gradient(160deg, ${COLOURS[type]}, ${COLOURS[type]})`,
+  boxShadow: `inset 0 2px 0 rgba(255,255,255,.32), inset 0 -2px 0 rgba(0,0,0,.22)`,
+});
+
+/* The hold slot and the queue, drawn tight to the piece's own bounding box so
+   an I and an O both look centred rather than floating in a 4x4 box. */
+function MiniPiece({ type, size = 13 }) {
+  if (!type) return <div style={{ height: size * 2 }} />;
+  const cells = cellsOf(type, 0, 0, 0);
+  const xs = cells.map(([x]) => x), ys = cells.map(([, y]) => y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
+  return (
+    <div style={{
+      display: "grid", gap: 2, justifyContent: "center",
+      gridTemplateColumns: `repeat(${w}, ${size}px)`,
+      gridTemplateRows: `repeat(${h}, ${size}px)`,
+    }}>
+      {Array.from({ length: w * h }).map((_, i) => {
+        const x = i % w, y = Math.floor(i / w);
+        const on = cells.some(([cx, cy]) => cx - x0 === x && cy - y0 === y);
+        return <div key={i} style={{ borderRadius: 3, ...(on ? cellFace(type) : { background: "transparent" }) }} />;
+      })}
+    </div>
+  );
+}
+
+function Panel({ label, children, style = {} }) {
+  return (
+    <div style={{
+      background: paleGrad(C.panel), borderRadius: 14, padding: "9px 10px",
+      boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`, textAlign: "center", ...style,
+    }}>
+      <div style={{
+        fontSize: "0.625rem", letterSpacing: ".16em", textTransform: "uppercase",
+        color: C.dim, fontWeight: 700, marginBottom: 4,
+      }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+const statValue = (big) => ({
+  fontSize: big ? "1.5rem" : "1.0625rem", fontWeight: 800, lineHeight: 1.1,
+  fontVariantNumeric: "tabular-nums", color: C.text,
+});
+
+const WELL_BG = "#221a14";
+const WELL_EMPTY = "#2f251d";
+
+/* The playfield. Everything floating above the board is flattened into one
+   grid first, so the renderer never has to think about layers. */
+function Well({ game, buzz, settle, boardTouch, frozen }) {
+  const view = game.board.map((row) => row.map((t) => (t ? { type: t } : null)));
+  const clearing = new Set(game.pending || []);
+
+  if (game.piece && game.status === "playing" && !frozen) {
+    const gy = ghostY(game);
+    for (const [x, y] of pieceCells({ ...game.piece, y: gy })) {
+      if (y >= 0 && y < ROWS && !view[y][x]) view[y][x] = { type: game.piece.type, ghost: true };
     }
-    for (const [x, y] of pieceCells(g.piece)) {
-      if (y >= 0 && y < ROWS) view[y][x] = { type: g.piece.type };
+    for (const [x, y] of pieceCells(game.piece)) {
+      if (y >= 0 && y < ROWS) view[y][x] = { type: game.piece.type };
     }
   }
 
-  const over = g.status === "over";
+  return (
+    <div key={buzz} className={buzz ? "tt-buzz" : undefined} {...boardTouch}
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+        gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+        gap: 1,
+        /* The well is dark in both themes — see the note in the rules about it
+           being the only background all seven pieces read against. */
+        background: WELL_BG,
+        padding: 5, borderRadius: 12,
+        width: "min(74vw, 300px)", aspectRatio: `${COLS} / ${ROWS}`,
+        boxShadow: `inset 0 2px 10px rgba(0,0,0,.5), ${SHADOW.md}`,
+        touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
+      }}>
+      {view.map((row, y) => row.map((cell, x) => {
+        const key = `${x},${y}`;
+        const isClearing = clearing.has(y);
+        const settling = settle?.cells.includes(key);
+        return (
+          <div key={key}
+            className={isClearing ? "tt-clearing" : settling ? "tt-settle" : undefined}
+            style={{
+              borderRadius: 3,
+              animationDelay: isClearing ? `${x * 14}ms` : undefined,
+              ...(cell
+                ? (cell.ghost
+                  ? { background: "transparent", boxShadow: `inset 0 0 0 2px ${COLOURS[cell.type]}55` }
+                  : cellFace(cell.type))
+                : { background: WELL_EMPTY }),
+            }} />
+        );
+      }))}
+    </div>
+  );
+}
+
+/* The opponent, drawn from the packed bitmask the server relays. No colours:
+   at this size they would be confetti. */
+function OpponentWell({ rows, alive }) {
+  const filled = Array.isArray(rows) && rows.length === ROWS ? rows : Array(ROWS).fill(0);
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+      gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+      gap: 1, background: WELL_BG, padding: 3, borderRadius: 8,
+      width: "min(30vw, 108px)", aspectRatio: `${COLS} / ${ROWS}`,
+      boxShadow: `inset 0 1px 6px rgba(0,0,0,.5), ${SHADOW.sm}`,
+      opacity: alive ? 1 : .45, transition: "opacity .3s",
+    }}>
+      {filled.flatMap((bits, y) => Array.from({ length: COLS }, (_, x) => (
+        <div key={`${x},${y}`} style={{
+          borderRadius: 1,
+          background: (bits >> x) & 1 ? C.dim : WELL_EMPTY,
+        }} />
+      )))}
+    </div>
+  );
+}
+
+/* A chunky control that repeats while held, for the on-screen pad. */
+function PadBtn({ label, icon, onPress, onRelease, wide }) {
+  return (
+    <button
+      className="btn3d"
+      onPointerDown={(e) => { e.preventDefault(); onPress(); }}
+      onPointerUp={() => onRelease?.()}
+      onPointerLeave={() => onRelease?.()}
+      onPointerCancel={() => onRelease?.()}
+      onContextMenu={(e) => e.preventDefault()}
+      aria-label={label}
+      style={{
+        flex: wide ? "1.4 1 0" : "1 1 0", height: 52, border: "none", borderRadius: 13,
+        background: paleGrad(C.panel2), color: C.text, cursor: "pointer",
+        fontFamily: "inherit", fontSize: "0.75rem", fontWeight: 700,
+        display: "grid", placeItems: "center", gap: 2,
+        boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
+        touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
+        WebkitTapHighlightColor: "transparent",
+      }}>
+      {icon}
+      <span style={{ fontSize: "0.625rem", color: C.dim, letterSpacing: ".04em" }}>{label}</span>
+    </button>
+  );
+}
+
+const Arrow = ({ rotate: r = 0 }) => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+    style={{ transform: `rotate(${r}deg)` }}>
+    <path d="M12 5v14M5 12l7 7 7-7" />
+  </svg>
+);
+
+function Pad({ actions }) {
+  const { setDir, setSoft, doRotate, doHold, doHardDrop } = actions;
+  return (
+    <div style={{ width: "min(100%, 340px)", marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <PadBtn label="Left" icon={<Arrow rotate={90} />} onPress={() => setDir(-1)} onRelease={() => setDir(0)} />
+        <PadBtn label="Rotate" wide icon={
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" />
+          </svg>
+        } onPress={() => doRotate(1)} />
+        <PadBtn label="Right" icon={<Arrow rotate={-90} />} onPress={() => setDir(1)} onRelease={() => setDir(0)} />
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <PadBtn label="Hold" icon={
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9h6v6H9z" />
+          </svg>
+        } onPress={doHold} />
+        <PadBtn label="Soft drop" wide icon={<Arrow />}
+          onPress={() => setSoft(true)} onRelease={() => setSoft(false)} />
+        <PadBtn label="Drop" icon={
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 4v11M6 11l6 6 6-6M5 21h14" />
+          </svg>
+        } onPress={doHardDrop} />
+      </div>
+    </div>
+  );
+}
+
+function TetrisBadge({ buzz }) {
+  if (!buzz) return null;
+  return (
+    <div key={`t${buzz}`} className="tt-tetris" aria-hidden style={{
+      position: "absolute", inset: 0, display: "grid", placeItems: "center",
+      pointerEvents: "none", opacity: 0,
+    }}>
+      <div style={{
+        fontFamily: "var(--font-head)", fontSize: "2rem", fontWeight: 700,
+        color: "#fff", background: `linear-gradient(150deg, ${COLOURS.Z}, ${COLOURS.L})`,
+        padding: "8px 20px", borderRadius: 14, letterSpacing: ".02em",
+        boxShadow: `${GLOSS}, 0 10px 30px rgba(0,0,0,.4)`,
+        textShadow: "0 2px 4px rgba(0,0,0,.35)",
+      }}>TETRIS!</div>
+    </div>
+  );
+}
+
+function BoardOverlay({ title, body, children }) {
+  return (
+    <div style={{
+      position: "absolute", inset: 0, display: "grid", placeItems: "center",
+      borderRadius: 12, padding: 16, textAlign: "center",
+      background: "color-mix(in srgb, var(--c-panel) 90%, transparent)",
+      backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
+    }}>
+      <div>
+        <div style={{
+          fontFamily: "var(--font-head)", fontSize: "1.75rem", fontWeight: 700,
+          marginBottom: 4, color: C.text,
+        }}>{title}</div>
+        {body && <div style={{ color: C.dim, fontSize: "0.875rem", marginBottom: 14 }}>{body}</div>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ local play */
+function LocalTetris({ onOnline }) {
+  const [seed, setSeed] = useState(randomSeed);
+  const [best, setBest] = useState(readBest);
+  const { game, buzz, levelUp, settle, boardTouch, actions } = useTetrisEngine({ seed });
+
+  useEffect(() => {
+    if (game.score > best) { setBest(game.score); writeBest(game.score); }
+  }, [game.score, best]);
+
+  const over = game.status === "over";
   const intro = CONTENT.intros?.tetris;
 
   return (
@@ -443,104 +611,34 @@ export default function Tetris() {
       <style>{styleBlock}</style>
 
       <div className="tt-wrap">
-        {/* ------------------------------------------------------ left */}
         <div className="tt-side tt-left">
-          <Panel label="Score">
-            <div className="tt-stat-big" style={statValue(true)}>{g.score}</div>
-          </Panel>
-          <Panel label="Best">
-            <div style={statValue(false)}>{Math.max(best, g.score)}</div>
-          </Panel>
+          <Panel label="Score"><div className="tt-stat-big" style={statValue(true)}>{game.score}</div></Panel>
+          <Panel label="Best"><div style={statValue(false)}>{Math.max(best, game.score)}</div></Panel>
           <Panel label="Level" style={{ position: "relative", overflow: "hidden" }}>
-            <div style={statValue(false)}>{g.level}</div>
+            <div style={statValue(false)}>{game.level}</div>
             <div key={levelUp} className={levelUp ? "tt-levelup" : undefined} style={{
               position: "absolute", inset: 0, background: C.accent, opacity: 0, pointerEvents: "none",
             }} />
           </Panel>
-          <Panel label="Lines"><div style={statValue(false)}>{g.lines}</div></Panel>
-          <Panel label="Hold"><MiniPiece type={g.hold} /></Panel>
+          <Panel label="Lines"><div style={statValue(false)}>{game.lines}</div></Panel>
+          <Panel label="Hold"><MiniPiece type={game.hold} /></Panel>
         </div>
 
-        {/* ----------------------------------------------------- board */}
         <div className="tt-board" style={{ position: "relative" }}>
-          <div key={buzz} className={buzz ? "tt-buzz" : undefined}
-            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-              gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-              gap: 1,
-              /* The well is dark in both themes — see the note in the rules
-                 about it being the only background all seven pieces read
-                 against. */
-              background: "#221a14",
-              padding: 5, borderRadius: 12,
-              width: "min(74vw, 300px)", aspectRatio: `${COLS} / ${ROWS}`,
-              boxShadow: `inset 0 2px 10px rgba(0,0,0,.5), ${SHADOW.md}`,
-              touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
-            }}>
-            {view.map((row, y) => row.map((cell, x) => {
-              const key = `${x},${y}`;
-              const isClearing = clearing.has(y);
-              const settling = settle?.cells.includes(key);
-              return (
-                <div key={key}
-                  className={isClearing ? "tt-clearing" : settling ? "tt-settle" : undefined}
-                  style={{
-                    borderRadius: 3,
-                    animationDelay: isClearing ? `${x * 14}ms` : undefined,
-                    ...(cell
-                      ? (cell.ghost
-                        ? { background: "transparent", boxShadow: `inset 0 0 0 2px ${COLOURS[cell.type]}55` }
-                        : cellFace(cell.type))
-                      : { background: "#2f251d" }),
-                  }} />
-              );
-            }))}
-          </div>
-
-          {/* The hype moment. Fires on a four-line clear and nothing else. */}
-          {buzz > 0 && (
-            <div key={`t${buzz}`} className="tt-tetris" aria-hidden style={{
-              position: "absolute", inset: 0, display: "grid", placeItems: "center",
-              pointerEvents: "none", opacity: 0,
-            }}>
-              <div style={{
-                fontFamily: "var(--font-head)", fontSize: "2rem", fontWeight: 700,
-                color: "#fff", background: `linear-gradient(150deg, ${COLOURS.Z}, ${COLOURS.L})`,
-                padding: "8px 20px", borderRadius: 14, letterSpacing: ".02em",
-                boxShadow: `${GLOSS}, 0 10px 30px rgba(0,0,0,.4)`,
-                textShadow: "0 2px 4px rgba(0,0,0,.35)",
-              }}>TETRIS!</div>
-            </div>
-          )}
-
+          <Well game={game} buzz={buzz} settle={settle} boardTouch={boardTouch} />
+          <TetrisBadge buzz={buzz} />
           {over && (
-            <div style={{
-              position: "absolute", inset: 0, display: "grid", placeItems: "center",
-              borderRadius: 12, padding: 16, textAlign: "center",
-              background: "color-mix(in srgb, var(--c-panel) 90%, transparent)",
-              backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
-            }}>
-              <div>
-                <div style={{
-                  fontFamily: "var(--font-head)", fontSize: "1.75rem", fontWeight: 700,
-                  marginBottom: 4, color: C.text,
-                }}>Topped out</div>
-                <div style={{ color: C.dim, fontSize: "0.875rem", marginBottom: 14 }}>
-                  {g.score} points, {g.lines} lines, level {g.level}.
-                </div>
-                <Btn onClick={restart}>New game</Btn>
-              </div>
-            </div>
+            <BoardOverlay title="Topped out"
+              body={`${game.score} points, ${game.lines} lines, level ${game.level}.`}>
+              <Btn onClick={() => setSeed(randomSeed())}>New game</Btn>
+            </BoardOverlay>
           )}
         </div>
 
-        {/* ----------------------------------------------------- right */}
         <div className="tt-side tt-right">
           <Panel label="Next">
             <div className="tt-next" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-              {g.queue.slice(0, PREVIEW).map((t, i) => (
+              {game.queue.slice(0, PREVIEW).map((t, i) => (
                 <MiniPiece key={i} type={t} size={i === 0 ? 13 : 10} />
               ))}
             </div>
@@ -548,51 +646,165 @@ export default function Tetris() {
         </div>
       </div>
 
-      {/* ------------------------------------------------------- controls */}
-      <div style={{ width: "min(100%, 340px)", marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <PadBtn label="Left" icon={<Arrow rotate={90} />} onPress={() => { acc.current.dir = -1; acc.current.das = 0; acc.current.arr = 0; doMove(-1); }} onRelease={() => { if (acc.current.dir === -1) acc.current.dir = 0; }} />
-          <PadBtn label="Rotate" wide icon={
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" />
-            </svg>
-          } onPress={() => doRotate(1)} />
-          <PadBtn label="Right" icon={<Arrow rotate={-90} />} onPress={() => { acc.current.dir = 1; acc.current.das = 0; acc.current.arr = 0; doMove(1); }} onRelease={() => { if (acc.current.dir === 1) acc.current.dir = 0; }} />
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <PadBtn label="Hold" icon={
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9h6v6H9z" />
-            </svg>
-          } onPress={doHold} />
-          <PadBtn label="Soft drop" wide icon={<Arrow />}
-            onPress={() => { acc.current.soft = true; }}
-            onRelease={() => { acc.current.soft = false; }} />
-          <PadBtn label="Drop" icon={
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 4v11M6 11l6 6 6-6M5 21h14" />
-            </svg>
-          } onPress={doHardDrop} />
-        </div>
-      </div>
+      <Pad actions={actions} />
 
-      {intro && (
-        <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, textAlign: "center" }}>
-          {intro}
-        </p>
-      )}
+      {intro && <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, textAlign: "center" }}>{intro}</p>}
 
       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
-        <Btn variant="subtle" onClick={restart}>Restart</Btn>
+        <Btn variant="subtle" onClick={() => setSeed(randomSeed())}>Restart</Btn>
+        {/* Hidden until a room server is configured, so nobody is sent to a dead end. */}
+        {roomServerUrl() && <Btn variant="subtle" onClick={onOnline}>Play online instead</Btn>}
       </div>
     </Centered>
   );
 }
 
-const KEY_SET = new Set([
-  "arrowleft", "arrowright", "arrowup", "arrowdown",
-  "a", "d", "s", "z", "c", "shift", " ", "spacebar",
-]);
+/* ----------------------------------------------------------- online play
+   Both players run this same engine on the same seed, so they get the same
+   pieces in the same order. The server owns the seed and the verdict; what
+   travels is a score and a packed board, a few times a second. */
+function OnlineTetris({ roomCode, navigate }) {
+  const [name, setName] = useState(() => savedName());
+  const { status, room, me, playerId, error, send } = useRoom({ gameId: 'tetris', roomCode, name });
+  const [countdown, setCountdown] = useState(0);
+  const sentTopOut = useRef(null);
+
+  const g = room?.game;
+  const startsAt = g?.startsAt ?? 0;
+  const playing = room?.status === 'playing';
+
+  /* Both players see the same "get ready" because both are counting to the
+     same server timestamp, not to a timer each started on arrival. */
+  useEffect(() => {
+    if (!playing || !startsAt) { setCountdown(0); return; }
+    const tick = () => setCountdown(Math.max(0, Math.ceil((startsAt - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 100);
+    return () => clearInterval(id);
+  }, [playing, startsAt]);
+
+  const live = playing && countdown === 0;
+
+  const onProgress = useCallback((state) => {
+    if (state.status === 'over') return;      // the topout report carries the final figures
+    send({ type: 'move', kind: 'progress', score: state.score, lines: state.lines, level: state.level, rows: packRows(state.board) });
+  }, [send]);
+
+  const onOver = useCallback((state) => {
+    /* Keyed on the round, so a rematch can report again but a re-render
+       cannot double-report the same death. */
+    if (sentTopOut.current === g?.roundNo) return;
+    sentTopOut.current = g?.roundNo;
+    send({ type: 'move', kind: 'topout', score: state.score, lines: state.lines, level: state.level, rows: packRows(state.board) });
+  }, [send, g?.roundNo]);
+
+  const engine = useTetrisEngine({
+    seed: g?.seed ?? 1,
+    active: live,
+    onProgress: playing ? onProgress : undefined,
+    onOver: playing ? onOver : undefined,
+  });
+
+  const lobby = lobbyView({ status, room, me, roomCode, gameId: 'tetris', navigate, name, onName: setName, send });
+  if (lobby) return lobby;
+
+  const opponent = room.players.find((p) => p.id !== playerId);
+  const mine = g.boards?.[playerId];
+  const theirs = opponent ? g.boards?.[opponent.id] : null;
+  const over = room.status === 'over';
+  const stale = opponent && !opponent.connected && Date.now() - opponent.lastSeen > 90000;
+
+  const verdict = over
+    ? (g.forfeitedBy ? `${opponent?.name ?? 'They'} left — you win`
+      : g.draw ? 'You both went at once'
+      : g.winner === playerId ? 'You outlasted them!'
+      : `${opponent?.name ?? 'They'} outlasted you`)
+    : null;
+
+  return (
+    <Centered>
+      <style>{styleBlock}</style>
+      <RoomStatus status={status} error={error} />
+
+      <div style={{ display: "flex", gap: 18, fontSize: "0.875rem", marginBottom: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+        <span style={{ color: C.accent, fontWeight: 800 }}>{me.name} {g.wins?.[playerId] ?? 0}</span>
+        <span style={{ color: C.dim }}>vs</span>
+        <span style={{ color: C.accent2, fontWeight: 800 }}>{opponent?.name ?? '—'} {opponent ? (g.wins?.[opponent.id] ?? 0) : 0}</span>
+        <span style={{ color: C.dim }}>Round {g.roundNo}</span>
+      </div>
+
+      {opponent && !opponent.connected && !over && (
+        <div style={{ background: C.panel2, borderRadius: 12, padding: "10px 16px", marginBottom: 12, fontSize: "0.84375rem", textAlign: "center", maxWidth: 380 }}>
+          {opponent.name} lost connection. Their seat is held while they reconnect.
+          {stale && <div style={{ marginTop: 8 }}>
+            <Btn variant="ghost" style={{ padding: "7px 16px", fontSize: "0.8125rem" }} onClick={() => send({ type: 'claim' })}>Claim the win</Btn>
+          </div>}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <Well game={engine.game} buzz={engine.buzz} settle={engine.settle}
+              boardTouch={engine.boardTouch} frozen={!live} />
+            <TetrisBadge buzz={engine.buzz} />
+
+            {countdown > 0 && (
+              <BoardOverlay title={String(countdown)} body="Same pieces, both boards. Last one standing wins.">
+                <span key={countdown} className="tt-count" style={{ display: "block", height: 0 }} />
+              </BoardOverlay>
+            )}
+
+            {over && (
+              <BoardOverlay title={verdict}
+                body={`You: ${mine?.score ?? 0} · ${opponent?.name ?? 'Them'}: ${theirs?.score ?? 0}`}>
+                <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                  <Btn onClick={() => send({ type: 'rematch' })}>Play again</Btn>
+                  <Btn variant="ghost" onClick={() => navigate('tetris')}>Leave</Btn>
+                </div>
+              </BoardOverlay>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <Panel label="Score" style={{ minWidth: 84 }}>
+              <div style={statValue(false)}>{engine.game.score}</div>
+            </Panel>
+            <Panel label="Lines" style={{ minWidth: 62 }}>
+              <div style={statValue(false)}>{engine.game.lines}</div>
+            </Panel>
+            <Panel label="Hold" style={{ minWidth: 62 }}><MiniPiece type={engine.game.hold} size={9} /></Panel>
+            <Panel label="Next" style={{ minWidth: 62 }}><MiniPiece type={engine.game.queue[0]} size={9} /></Panel>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+          <div style={{ fontSize: "0.6875rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.dim, fontWeight: 700 }}>
+            {opponent?.name ?? 'Opponent'}{theirs && !theirs.alive ? ' — out' : ''}
+          </div>
+          <OpponentWell rows={theirs?.rows} alive={theirs?.alive !== false} />
+          <Panel label="Their score" style={{ minWidth: 92 }}>
+            <div style={statValue(false)}>{theirs?.score ?? 0}</div>
+          </Panel>
+        </div>
+      </div>
+
+      {!over && <Pad actions={engine.actions} />}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", justifyContent: "center" }}>
+        <Btn variant="subtle" onClick={() => navigate('tetris')}>Leave room</Btn>
+      </div>
+    </Centered>
+  );
+}
+
+export default function Tetris({ roomCode, mode, navigate }) {
+  /* The host/join screen is a route, not component state, so a refresh while
+     choosing keeps you on it instead of dropping back to the local game. */
+  if (roomCode) return <OnlineTetris roomCode={roomCode} navigate={navigate} />;
+  if (mode === 'online') {
+    return <OnlineEntry gameId="tetris" gameName="Tetris" navigate={navigate}
+      onCancel={() => navigate('tetris')} />;
+  }
+  return <LocalTetris onOnline={() => navigate('tetris', 'online')} />;
+}
