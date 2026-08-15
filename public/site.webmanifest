@@ -1,7 +1,7 @@
 {
   "name": "Puzzlr",
   "short_name": "Puzzlr",
-  "description": "Seven quick browser games. No sign-up, no apps, no timer pressure.",
+  "description": "Free browser puzzle games to play with friends. No sign-up, no apps, no timer pressure.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

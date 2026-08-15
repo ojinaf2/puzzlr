@@ -128,10 +128,14 @@ function Landing({ onPick }) {
    search engines saw one page and every shared link previewed identically. */
 const SITE = "https://playpuzzlr.com";
 
-const HOME_TITLE = `Puzzlr — quick browser games, no sign-up`;
-/* Deliberately no count. Games get added, and a number baked into a shared
-   link or a search result goes stale the moment one does. */
-const HOME_DESC = `Hand-built games in one place: ${GAMES.map((g) => g.name).join(", ").replace(/, ([^,]*)$/, " and $1")}. No sign-up, no apps, no timer pressure.`;
+const HOME_TITLE = `Puzzlr — browser puzzle games with friends, no sign-up`;
+/* Deliberately no count, and deliberately not every game either. A number
+   baked into a search result goes stale the moment a game is added — and so
+   does an exhaustive list, because a reader (or a search engine) can just
+   count it. Naming a few and trailing off with "and more" keeps the keywords
+   and needs no edit per game. Kept in step with index.html, which is what a
+   crawler sees before this ever runs. */
+const HOME_DESC = `Free browser puzzle games — Wordl Unlimited, Minesweeper, Snake, Connect 4 and more. Play solo or with friends over an invite link. No sign-up, no downloads.`;
 
 const setMeta = (selector, attr, value) => {
   const el = document.head.querySelector(selector);
