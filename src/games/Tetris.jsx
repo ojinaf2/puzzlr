@@ -52,6 +52,10 @@ const writeBest = (v) => {
 
 const randomSeed = () => (Math.random() * 2 ** 31) >>> 0;
 
+/* Served from our own domain rather than hotlinked, like the flags, and only
+   fetched once a game actually starts — see the note in shared/sound.js. */
+const MUSIC_SRC = "/audio/tetris-theme.mp3";
+
 const styleBlock = `
   .tt-wrap {
     display: flex; gap: 14px; align-items: flex-start; justify-content: center;
@@ -301,7 +305,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   const scored = active && game.status !== "over";
   useEffect(() => {
     if (!scored) { stopMusic(); return undefined; }
-    startMusic();
+    startMusic(MUSIC_SRC);
     return () => stopMusic();
   }, [scored]);
 
@@ -628,6 +632,23 @@ function Pad({ actions }) {
   );
 }
 
+/* The attribution the track's licence asks for. Deliberately not in
+   content.js: everything in that file is copy somebody can reword or empty
+   from /admin, and this is a condition of using the music rather than a
+   sentence about the game. */
+function MusicCredit() {
+  return (
+    <p style={{ fontSize: "0.6875rem", color: C.dim, marginTop: 18, textAlign: "center", lineHeight: 1.6, maxWidth: 420 }}>
+      Music —{" "}
+      <a href="https://www.youtube.com/watch?v=NEPsBlNggno" target="_blank" rel="noopener noreferrer"
+        style={{ color: C.accent, fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 2 }}>
+        Tetris (Dark Version) by Myuu
+      </a>{" "}
+      is licensed under a Creative Commons License (No Copyright Music)
+    </p>
+  );
+}
+
 function SoundToggle() {
   const [on, setOn] = useState(soundOn);
   const flip = () => { const next = !on; setOn(next); setSoundOn(next); };
@@ -808,6 +829,8 @@ function LocalTetris({ onOnline }) {
       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn variant="subtle" onClick={newGame}>Restart</Btn>
       </div>
+
+      <MusicCredit />
     </Centered>
   );
 }
@@ -951,6 +974,8 @@ function OnlineTetris({ roomCode, navigate }) {
       <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn variant="subtle" onClick={() => navigate('tetris')}>Leave room</Btn>
       </div>
+
+      <MusicCredit />
     </Centered>
   );
 }

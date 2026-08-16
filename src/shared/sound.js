@@ -36,10 +36,11 @@ export function setSoundOn(on) {
   enabled = !!on;
   try { localStorage.setItem(PREF_KEY, on ? "1" : "0"); } catch { /* private mode */ }
   if (master && ctx) master.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.01);
-  /* Muting stops the scheduler but must not forget that a game is running,
-     or turning the sound back on mid-game leaves it silent until the next
-     round. `wantMusic` is that memory. */
-  if (!on) halt(); else if (wantMusic) begin();
+  /* Muting pauses the track but must not forget that a game is running, or
+     turning the sound back on mid-round leaves it silent until the next one.
+     `wantMusic` is that memory. */
+  if (!on) { if (el) el.pause(); }
+  else if (wantMusic) play();
 }
 
 /* Created on demand, never at module load: an AudioContext made outside a
@@ -120,78 +121,56 @@ export const sfx = {
 };
 
 /* ----------------------------------------------------------------- music
-   A sixteen-step bar at four steps a beat. `null` is a rest; numbers are
-   semitones from A. Four bars of bass with a lead over the top. */
-const BPM = 128;
-const STEP = 60 / BPM / 4;
-const A = 220;
-const hz = (semi) => A * 2 ** (semi / 12);
+   A real track rather than a synthesised loop, served from our own domain
+   like the flags and for the same reason. It is a plain <audio> element, not
+   a Web Audio buffer: nothing here needs to process the music, only start and
+   stop it, and an element streams rather than decoding three megabytes into
+   memory before the first note.
 
-const BASS = [
-  0, null, 0, null, 7, null, 0, null, 5, null, 5, null, 3, null, 3, null,
-  0, null, 0, null, 7, null, 0, null, 5, null, 3, null, 0, null, -2, null,
-  -4, null, -4, null, 3, null, -4, null, 0, null, 0, null, 3, null, 5, null,
-  0, null, 0, null, 7, null, 12, null, 7, null, 5, null, 3, null, 0, null,
-];
-const LEAD = [
-  12, null, 15, 12, 19, null, 15, null, 17, null, 15, 12, 12, null, null, null,
-  12, null, 15, 12, 19, null, 22, null, 20, null, 17, 15, 12, null, null, null,
-  8, null, 12, 8, 15, null, 12, null, 8, null, 7, null, 8, null, 12, null,
-  12, null, 19, null, 17, null, 15, null, 12, null, 7, null, 0, null, null, null,
-];
+   `preload: none` matters. The file is only fetched once somebody actually
+   starts a game with the sound on, so anyone who never opens Tetris — or
+   turns the sound off — never downloads it.
 
-let musicTimer = null;
-let step = 0;
-let nextAt = 0;
+   The caller supplies the source, so this stays a shared module rather than a
+   Tetris one. */
+const MUSIC_VOLUME = 0.34;      // under the cues, which are the informative part
 
-/* A lookahead scheduler rather than a note-per-timeout: setInterval drifts and
-   is throttled in a background tab, but notes queued against the audio clock
-   play exactly when they were told to. */
-const LOOKAHEAD_MS = 25;
-const HORIZON = 0.12;
-
-function pump() {
-  const c = audio();
-  if (!c) return;
-  while (nextAt < c.currentTime + HORIZON) {
-    const at = nextAt - c.currentTime;
-    const b = BASS[step % BASS.length];
-    const l = LEAD[step % LEAD.length];
-    if (b !== null && b !== undefined) tone({ freq: hz(b - 12), at, dur: STEP * 1.6, gain: 0.075, type: "triangle" });
-    if (l !== null && l !== undefined) tone({ freq: hz(l), at, dur: STEP * 1.3, gain: 0.05, type: "square" });
-    // A soft tick on the backbeat, to give it a pulse without a drum kit.
-    if (step % 8 === 4) thud({ at, dur: 0.05, gain: 0.05, cutoff: 2600 });
-    step += 1;
-    nextAt += STEP;
-  }
-}
-
-/* `wantMusic` is whether a game is running; `musicTimer` is whether we are
-   actually making noise about it. Muting separates the two. */
+let el = null;
+let wantSrc = null;
+/* Whether a game is running, as opposed to whether we are currently making
+   noise about it. Muting separates the two, or turning the sound back on
+   mid-round leaves it silent until the next one. */
 let wantMusic = false;
 
-function begin() {
-  if (musicTimer) return;
-  const c = audio();
-  if (!c) return;
-  step = 0;
-  nextAt = c.currentTime + 0.08;
-  pump();
-  musicTimer = setInterval(pump, LOOKAHEAD_MS);
+function play() {
+  if (!wantSrc || !enabled) return;
+  if (!el) {
+    el = new Audio();
+    el.loop = true;
+    el.preload = "none";
+    el.volume = MUSIC_VOLUME;
+  }
+  if (el.dataset.src !== wantSrc) {
+    el.dataset.src = wantSrc;
+    el.src = wantSrc;
+  }
+  /* Rejects until the browser has seen a gesture, which is the right
+     behaviour — there is nothing to do about it but try again next time. */
+  el.play().catch(() => { /* not allowed yet */ });
 }
 
-function halt() {
-  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
-}
-
-export function startMusic() {
+export function startMusic(src) {
   wantMusic = true;
-  if (enabled) begin();
+  if (src) wantSrc = src;
+  play();
 }
 
 export function stopMusic() {
   wantMusic = false;
-  halt();
+  if (el) {
+    el.pause();
+    try { el.currentTime = 0; } catch { /* not seekable yet */ }
+  }
 }
 
-export const musicPlaying = () => musicTimer !== null;
+export const musicPlaying = () => !!el && !el.paused;
