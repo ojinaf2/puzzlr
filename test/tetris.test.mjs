@@ -287,6 +287,35 @@ const nextPiece = (g) => ({ ...hardDrop(g), board: empty() });
   ok('the curve never increases', [...Array(40)].every((_, i) => i === 0 || gravityMs(i + 1) <= gravityMs(i)));
 }
 
+/* ---------------------------------------------------------------- rush
+   Score buys speed on top of the level curve, and never gives it back. */
+{
+  const { speedMultiplier: mult, fallMs, gravityMs: grav, RUSH_FLOOR_MS } = R;
+  eq('a fresh game runs at normal speed', mult(0), 1);
+  eq('just under eight thousand is still normal', mult(7999), 1);
+  eq('eight thousand doubles it', mult(8000), 2);
+  eq('and stays doubled until sixteen', mult(15999), 2);
+  eq('sixteen thousand quadruples it', mult(16000), 4);
+  eq('and holds to twenty-four', mult(23999), 4);
+  eq('twenty-four thousand is six times', mult(24000), 6);
+  eq('and it never goes higher', [mult(50000), mult(1e6)], [6, 6]);
+  ok('the tiers never step down', [0, 5000, 8000, 12000, 16000, 20000, 24000, 99999]
+    .every((s, i, a) => i === 0 || mult(s) >= mult(a[i - 1])));
+}
+{
+  const { fallMs, gravityMs: grav, RUSH_FLOOR_MS } = R;
+  eq('below the first tier the level curve is untouched', fallMs(1, 0), grav(1));
+  eq('at level one, doubled', fallMs(1, 8000), grav(1) / 2);
+  eq('at level one, quadrupled', fallMs(1, 16000), grav(1) / 4);
+  eq('at level one, six times', fallMs(1, 24000), grav(1) / 6);
+  ok('a rushed fall is always quicker than the plain one', fallMs(3, 24000) < grav(3));
+  // Six times a floored 60ms is 10ms, which is a teleport rather than a fall.
+  eq('but never past the rush floor', fallMs(20, 24000), RUSH_FLOOR_MS);
+  ok('and the floor is still playable-ish', RUSH_FLOOR_MS >= 20);
+  ok('speed only ever increases with score',
+    [0, 8000, 16000, 24000].every((s, i, a) => i === 0 || fallMs(5, s) <= fallMs(5, a[i - 1])));
+}
+
 /* --------------------------------------------------------- frozen states */
 {
   const over = { ...newGame(1), status: 'over' };

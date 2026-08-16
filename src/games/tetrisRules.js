@@ -351,3 +351,32 @@ export function gravityMs(level) {
   const base = Math.max(0.05, 0.8 - (l - 1) * 0.007);
   return Math.max(GRAVITY_FLOOR_MS, base ** (l - 1) * 1000);
 }
+
+/* ------------------------------------------------------------------ rush
+   Score buys speed on top of the level curve. Levels come from lines cleared,
+   so a cautious player who clears singles forever climbs slowly; this keys off
+   points instead, which means the big clears that earn them also bring the
+   pressure. Highest matching tier wins and it never comes back down.
+
+   Below the level curve's own floor there is a second, lower one. Six times a
+   60ms fall is 10ms, which is not difficulty — a piece would cross the board
+   in a fifth of a second, faster than it can be seen let alone steered. 25ms
+   is still brutal (forty rows a second) but it is a fall rather than a
+   teleport. */
+export const RUSH_FLOOR_MS = 25;
+
+export const SPEED_TIERS = [
+  { from: 24000, multiplier: 6 },
+  { from: 16000, multiplier: 4 },
+  { from: 8000, multiplier: 2 },
+];
+
+export const speedMultiplier = (score = 0) =>
+  SPEED_TIERS.find((t) => score >= t.from)?.multiplier ?? 1;
+
+/* What the game should actually use: the level curve, then the score tier. */
+export function fallMs(level, score = 0) {
+  const gravity = gravityMs(level);
+  const rush = speedMultiplier(score);
+  return rush === 1 ? gravity : Math.max(RUSH_FLOOR_MS, gravity / rush);
+}

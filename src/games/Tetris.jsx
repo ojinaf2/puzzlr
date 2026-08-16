@@ -7,7 +7,7 @@ import { useRoom, savedName } from '../shared/useRoom.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
-  cellsOf, pieceCells, gravityMs, packRows,
+  cellsOf, pieceCells, fallMs, speedMultiplier, packRows,
 } from './tetrisRules.js';
 
 /* ============================= TETRIS =============================
@@ -123,11 +123,13 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   const gameRef = useRef(game);
   const [buzz, setBuzz] = useState(0);
   const [levelUp, setLevelUp] = useState(0);
+  const [rushUp, setRushUp] = useState(0);
   const [settle, setSettle] = useState(null);
 
   const acc = useRef({ drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 });
   const touch = useRef(null);
   const prevLevel = useRef(1);
+  const prevRush = useRef(1);
   const cb = useRef({ onProgress, onOver });
   cb.current = { onProgress, onOver };
 
@@ -138,6 +140,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
     const fresh = newGame(seed);
     acc.current = { drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
     prevLevel.current = 1;
+    prevRush.current = 1;
     setSettle(null);
     gameRef.current = fresh;
     setGame(fresh);
@@ -223,7 +226,10 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
           }
         }
 
-        const speed = a.soft ? Math.min(gravityMs(g.level), SOFT_MS) : gravityMs(g.level);
+        /* Level curve plus the score tier. Soft drop never makes a piece
+           slower than it was already falling. */
+        const natural = fallMs(g.level, g.score);
+        const speed = a.soft ? Math.min(natural, SOFT_MS) : natural;
         a.drop += dt;
         while (a.drop >= speed) {
           a.drop -= speed;
@@ -265,6 +271,13 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   useEffect(() => {
     if (game.level > prevLevel.current) { prevLevel.current = game.level; setLevelUp((n) => n + 1); }
   }, [game.level]);
+
+  /* Crossing a score tier makes everything suddenly faster. Say so, or it
+     reads as the game glitching. */
+  useEffect(() => {
+    const rush = speedMultiplier(game.score);
+    if (rush > prevRush.current) { prevRush.current = rush; setRushUp((n) => n + 1); }
+  }, [game.score]);
 
   /* The board is a new array on every lock and every clear, which makes it
      the natural heartbeat to report on — a few times a second at most, rather
@@ -348,7 +361,8 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   };
 
   return {
-    game, buzz, levelUp, settle, boardTouch,
+    game, buzz, levelUp, rushUp, settle, boardTouch,
+    rush: speedMultiplier(game.score),
     actions: { setDir, setSoft, doRotate, doHold, doHardDrop },
   };
 }
@@ -406,6 +420,18 @@ const statValue = (big) => ({
   fontSize: big ? "1.5rem" : "1.0625rem", fontWeight: 800, lineHeight: 1.1,
   fontVariantNumeric: "tabular-nums", color: C.text,
 });
+
+/* The score tier, worn next to the score that earned it. */
+function RushChip({ rush }) {
+  if (rush <= 1) return null;
+  return (
+    <span style={{
+      fontSize: "0.625rem", fontWeight: 800, color: "#fff", background: COLOURS.Z,
+      borderRadius: 20, padding: "1px 6px", marginLeft: 5, verticalAlign: "middle",
+      letterSpacing: ".02em", whiteSpace: "nowrap",
+    }}>×{rush}</span>
+  );
+}
 
 const WELL_BG = "#221a14";
 const WELL_EMPTY = "#2f251d";
@@ -602,7 +628,7 @@ function LocalTetris({ onOnline }) {
      than playing, and the same is true of every new board — so the gate comes
      back on a restart too, rather than only on first load. */
   const [started, setStarted] = useState(false);
-  const { game, buzz, levelUp, settle, boardTouch, actions } = useTetrisEngine({ seed, active: started });
+  const { game, buzz, levelUp, rushUp, rush, settle, boardTouch, actions } = useTetrisEngine({ seed, active: started });
 
   const newGame = useCallback(() => { setSeed(randomSeed()); setStarted(false); }, []);
 
@@ -636,7 +662,14 @@ function LocalTetris({ onOnline }) {
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
-          <Panel label="Score"><div className="tt-stat-big" style={statValue(true)}>{game.score}</div></Panel>
+          <Panel label="Score" style={{ position: "relative", overflow: "hidden" }}>
+            <div className="tt-stat-big" style={statValue(true)}>
+              {game.score}<RushChip rush={rush} />
+            </div>
+            <div key={rushUp} className={rushUp ? "tt-levelup" : undefined} style={{
+              position: "absolute", inset: 0, background: COLOURS.Z, opacity: 0, pointerEvents: "none",
+            }} />
+          </Panel>
           <Panel label="Best"><div style={statValue(false)}>{Math.max(best, game.score)}</div></Panel>
           <Panel label="Level" style={{ position: "relative", overflow: "hidden" }}>
             <div style={statValue(false)}>{game.level}</div>
@@ -794,8 +827,11 @@ function OnlineTetris({ roomCode, navigate }) {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <Panel label="Score" style={{ minWidth: 84 }}>
-              <div style={statValue(false)}>{engine.game.score}</div>
+            <Panel label="Score" style={{ minWidth: 84, position: "relative", overflow: "hidden" }}>
+              <div style={statValue(false)}>{engine.game.score}<RushChip rush={engine.rush} /></div>
+              <div key={engine.rushUp} className={engine.rushUp ? "tt-levelup" : undefined} style={{
+                position: "absolute", inset: 0, background: COLOURS.Z, opacity: 0, pointerEvents: "none",
+              }} />
             </Panel>
             <Panel label="Lines" style={{ minWidth: 62 }}>
               <div style={statValue(false)}>{engine.game.lines}</div>
