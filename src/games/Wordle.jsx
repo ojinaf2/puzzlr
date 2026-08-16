@@ -71,7 +71,7 @@ function LocalWordle({ navigate, onOnline }) {
         onFriends={roomServerUrl() ? onOnline : undefined} />
       {daily && (
         <div style={{ fontSize: "0.78125rem", color: C.dim, marginBottom: 10, textAlign: "center" }}>
-          Puzzle #{day} — the same word for everyone today
+          Puzzle #{day}
         </div>
       )}
 

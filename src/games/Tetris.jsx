@@ -4,6 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
+import { sfx, startMusic, stopMusic, soundOn, setSoundOn } from '../shared/sound.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
@@ -130,6 +131,10 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   const touch = useRef(null);
   const prevLevel = useRef(1);
   const prevRush = useRef(1);
+  const prevPiece = useRef(null);
+  /* A hold swaps the piece, which looks exactly like a spawn from the outside.
+     Without this the two cues fire together and it reads as a stutter. */
+  const heldJustNow = useRef(false);
   const cb = useRef({ onProgress, onOver });
   cb.current = { onProgress, onOver };
 
@@ -166,10 +171,17 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
 
   const doRotate = useCallback((dir) => {
     if (!active) return;
-    apply((g) => { const n = rotate(g, dir); if (n !== g) bumpLock(); return n; });
+    apply((g) => { const n = rotate(g, dir); if (n !== g) { bumpLock(); sfx.rotate(); } return n; });
   }, [apply, bumpLock, active]);
 
-  const doHold = useCallback(() => { if (active) apply((g) => holdPiece(g)); }, [apply, active]);
+  const doHold = useCallback(() => {
+    if (!active) return;
+    apply((g) => {
+      const next = holdPiece(g);
+      if (next !== g) { heldJustNow.current = true; sfx.hold(); }
+      return next;
+    });
+  }, [apply, active]);
 
   const doHardDrop = useCallback(() => {
     if (!active) return;
@@ -178,6 +190,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
       setSettle({ cells: pieceCells({ ...g.piece, y: ghostY(g) }).map(([x, y]) => `${x},${y}`), id: Date.now() });
       const a = acc.current;
       a.lock = 0; a.resets = 0; a.drop = 0;
+      sfx.land();
       return hardDrop(g);
     });
   }, [apply, active]);
@@ -241,6 +254,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
           a.lock += dt;
           if (a.lock >= LOCK_MS || a.resets >= LOCK_RESETS) {
             setSettle({ cells: pieceCells(g.piece).map(([x, y]) => `${x},${y}`), id: now });
+            sfx.land();
             g = lock(g);
             a.lock = 0; a.resets = 0; a.drop = 0;
           }
@@ -265,11 +279,34 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   }, [settle]);
 
   useEffect(() => {
-    if (game.status === "clearing" && game.pending?.length === 4) setBuzz((b) => b + 1);
+    if (game.status !== "clearing" || !game.pending) return;
+    if (game.pending.length === 4) { setBuzz((b) => b + 1); sfx.tetris(); } else sfx.clear();
   }, [game.status, game.pending]);
 
+  /* A new piece in play. Skipped when it arrived by a hold, which has already
+     made its own noise. */
   useEffect(() => {
-    if (game.level > prevLevel.current) { prevLevel.current = game.level; setLevelUp((n) => n + 1); }
+    const id = game.piece?.id ?? null;
+    if (id !== null && id !== prevPiece.current) {
+      if (!heldJustNow.current) sfx.spawn();
+      heldJustNow.current = false;
+    }
+    prevPiece.current = id;
+  }, [game.piece?.id]);
+
+  useEffect(() => { if (game.status === "over") sfx.over(); }, [game.status]);
+
+  /* Music runs while there is a game to play — not through the Ready screen,
+     not over the countdown, and not on top of the game-over sting. */
+  const scored = active && game.status !== "over";
+  useEffect(() => {
+    if (!scored) { stopMusic(); return undefined; }
+    startMusic();
+    return () => stopMusic();
+  }, [scored]);
+
+  useEffect(() => {
+    if (game.level > prevLevel.current) { prevLevel.current = game.level; setLevelUp((n) => n + 1); sfx.levelUp(); }
   }, [game.level]);
 
   /* Crossing a score tier makes everything suddenly faster. Say so, or it
@@ -292,11 +329,11 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
       switch (k) {
         case "arrowleft": case "a": setDir(-1); break;
         case "arrowright": case "d": setDir(1); break;
-        case " ": case "spacebar": doRotate(1); break;
-        case "z": doRotate(-1); break;
+        case "arrowup": case "w": doRotate(1); break;
+        case "z": doRotate(-1); break;            // the other way, for anyone who wants it
         case "arrowdown": case "s": setSoft(true); break;
-        case "arrowup": doHardDrop(); break;
-        case "c": case "shift": doHold(); break;
+        case "control": doHardDrop(); break;
+        case " ": case "spacebar": doHold(); break;
         default: break;
       }
     };
@@ -308,9 +345,19 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
     };
 
     const onDown = (e) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const k = e.key.toLowerCase();
+      /* Ctrl is a game control here, so it has to be read before the modifier
+         guard below would swallow it. Only the bare key counts: a real
+         shortcut like Ctrl+R arrives as a second keydown for "r", and that one
+         still hits the guard. The cost is that reaching for Ctrl+anything
+         mid-game drops the piece first. */
+      if (k === "control") {
+        e.preventDefault();
+        if (!e.repeat) press("control");
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!KEY_SET.has(k)) return;
       e.preventDefault();          // arrows and space would scroll the page
       if (e.repeat) return;        // the loop does its own auto-repeat
@@ -369,7 +416,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
 
 const KEY_SET = new Set([
   "arrowleft", "arrowright", "arrowup", "arrowdown",
-  "a", "d", "s", "z", "c", "shift", " ", "spacebar",
+  "a", "d", "s", "w", "z", "control", " ", "spacebar",
 ]);
 
 /* ---------------------------------------------------------------- pieces */
@@ -581,6 +628,50 @@ function Pad({ actions }) {
   );
 }
 
+function SoundToggle() {
+  const [on, setOn] = useState(soundOn);
+  const flip = () => { const next = !on; setOn(next); setSoundOn(next); };
+  return (
+    <button onClick={flip} aria-pressed={on} title={on ? "Sound on" : "Sound off"}
+      aria-label={on ? "Turn sound off" : "Turn sound on"}
+      className={on ? "btn3d" : "btn-flat"}
+      style={{
+        border: on ? "none" : `1px solid ${C.line}`, borderRadius: 9, cursor: "pointer",
+        width: 38, height: 38, display: "grid", placeItems: "center", flexShrink: 0,
+        background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
+        boxShadow: on ? `${GLOSS}, ${SHADOW.sm}` : "none",
+      }}>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 9v6h4l5 4V5L8 9H4z" />
+        {on
+          ? <><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" opacity=".7" /></>
+          : <path d="M17 9.5l4 5M21 9.5l-4 5" />}
+      </svg>
+    </button>
+  );
+}
+
+/* Just the bindings, keyboard and touch, rather than a paragraph explaining
+   the game to somebody who has already opened it. */
+function Controls() {
+  const row = (label, keys) => keys ? (
+    <div style={{ display: "flex", gap: 10, alignItems: "baseline", justifyContent: "center", flexWrap: "wrap" }}>
+      <span style={{
+        fontSize: "0.625rem", letterSpacing: ".16em", textTransform: "uppercase",
+        color: C.dim, fontWeight: 700, flexShrink: 0,
+      }}>{label}</span>
+      <span style={{ fontSize: "0.8125rem", color: C.dim }}>{keys}</span>
+    </div>
+  ) : null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 16, textAlign: "center" }}>
+      {row("Keyboard", CONTENT.intros?.tetrisKeys)}
+      {row("Touch", CONTENT.intros?.tetrisTouch)}
+    </div>
+  );
+}
+
 function TetrisBadge({ buzz }) {
   if (!buzz) return null;
   return (
@@ -642,9 +733,9 @@ function LocalTetris({ onOnline }) {
   useEffect(() => {
     if (started || over) return;
     const go = (e) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const k = e.key.toLowerCase();
+      if (k !== "control" && (e.metaKey || e.ctrlKey || e.altKey)) return;
       if (!KEY_SET.has(k) && k !== "enter") return;
       e.preventDefault();
       setStarted(true);
@@ -653,12 +744,14 @@ function LocalTetris({ onOnline }) {
     return () => window.removeEventListener("keydown", go);
   }, [started, over]);
 
-  const intro = CONTENT.intros?.tetris;
 
   return (
     <Centered>
       <style>{styleBlock}</style>
-      <PlayTabs localLabel="Solo" onOnline={onOnline} />
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
+        <div style={{ marginBottom: -14 }}><PlayTabs localLabel="Solo" onOnline={onOnline} /></div>
+        <SoundToggle />
+      </div>
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
@@ -685,7 +778,7 @@ function LocalTetris({ onOnline }) {
           <Well game={game} buzz={buzz} settle={settle} boardTouch={boardTouch} frozen={!started} />
           <TetrisBadge buzz={buzz} />
           {!started && !over && (
-            <BoardOverlay title="Ready?" body="Arrows or A and D to move, space to rotate, down to drop.">
+            <BoardOverlay title="Ready?" body={CONTENT.intros?.tetrisKeys}>
               <Btn onClick={() => setStarted(true)}>Start</Btn>
             </BoardOverlay>
           )}
@@ -710,7 +803,7 @@ function LocalTetris({ onOnline }) {
 
       <Pad actions={actions} />
 
-      {intro && <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, textAlign: "center" }}>{intro}</p>}
+      <Controls />
 
       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn variant="subtle" onClick={newGame}>Restart</Btn>
@@ -791,6 +884,7 @@ function OnlineTetris({ roomCode, navigate }) {
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: C.accent2, fontWeight: 800 }}>{opponent?.name ?? '—'} {opponent ? (g.wins?.[opponent.id] ?? 0) : 0}</span>
         <span style={{ color: C.dim }}>Round {g.roundNo}</span>
+        <SoundToggle />
       </div>
 
       {opponent && !opponent.connected && !over && (

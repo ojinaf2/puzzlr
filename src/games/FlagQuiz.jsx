@@ -170,9 +170,9 @@ function LocalFlagQuiz({ navigate, onOnline }) {
             style={{ padding: "8px 22px", fontSize: "0.875rem" }}>{label}</Btn>
         ))}
       </div>
-      <p style={{ ...pStyle, fontSize: "0.84375rem", marginBottom: 22 }}>
+      <p style={{ ...pStyle, fontSize: "0.84375rem", marginBottom: 22, minHeight: 1 }}>
         {difficulty === "easy"
-          ? "Four options to choose from."
+          ? ""
           : "Flag → Country: type the country yourself, no options. Country → Flag: six flags instead of four."}
       </p>
 

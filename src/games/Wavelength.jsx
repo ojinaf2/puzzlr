@@ -63,7 +63,7 @@ function LocalWavelength({ navigate, onOnline }) {
     <Centered>
       <PlayTabs localLabel="Same device" onOnline={onOnline} />
       <h2 style={hStyle}>Wavelength</h2>
-      <p style={pStyle}>Pass-and-play for 2. One player sees a hidden target on a spectrum and gives a one-word clue. The other slides the dial to guess where it landed. Closer = more points. Six rounds, take turns.</p>
+      <p style={pStyle}>Players split into teams to read each other's minds by guessing where a hidden target lies on a physical or digital spectrum based on a single conceptual clue.</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Start</Btn>
       </div>

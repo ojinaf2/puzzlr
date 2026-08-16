@@ -83,8 +83,9 @@ function GameCard({ game, onClick }) {
         <svg viewBox="0 0 52 52" width="42" height="42">{game.icon}</svg>
       </div>
       <div>
-        <div style={{ fontSize: "1.1875rem", fontWeight: 800, marginBottom: 3, letterSpacing: "-.01em" }}>{game.name}</div>
-        <div style={{ fontSize: "0.84375rem", color: C.dim }}>{game.tag}</div>
+        {/* Name only. The one-line taglines under each name were saying
+            nothing the icon and the name had not already said. */}
+        <div style={{ fontSize: "1.1875rem", fontWeight: 800, letterSpacing: "-.01em" }}>{game.name}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2, gap: 8 }}>
         <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -111,9 +112,6 @@ function Landing({ onPick }) {
         <h1 className="grad-text" style={{ fontFamily: "var(--font-head)", fontSize: "clamp(2.375rem, 7vw, 3.875rem)", fontWeight: 700, lineHeight: 1.05, margin: "0 0 16px", letterSpacing: "-.01em", background: `linear-gradient(170deg, ${C.text} 30%, ${C.accent2})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
           {CONTENT.hub.headlineTop}<br />{CONTENT.hub.headlineBottom}
         </h1>
-        <p style={{ color: C.dim, fontSize: "1rem", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
-          {CONTENT.hub.intro}
-        </p>
       </section>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, paddingBottom: 60 }}>
         {GAMES.map((g) => <GameCard key={g.id} game={g} onClick={() => onPick(g.id)} />)}

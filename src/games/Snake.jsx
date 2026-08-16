@@ -180,13 +180,9 @@ export default function Snake() {
     <Centered>
       <Anim />
       <h2 style={hStyle}>Snake</h2>
-      <p style={pStyle}>
-        Eat apples, grow longer, and do not hit the wall or yourself.
-        The board is {SIZE} by {SIZE}, so a perfect run is {MAX_SCORE} apples.
-      </p>
       <div style={{ width: "100%", maxWidth: 460, textAlign: "left" }}>
         <div style={{ fontSize: "0.78125rem", fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
-          Difficulty is how fast it moves
+          Difficulty
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
           {SPEEDS.map((s) => {
@@ -196,7 +192,6 @@ export default function Snake() {
                 style={{ padding: "14px 16px", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
                 <span style={{ flex: 1 }}>
                   <span style={{ fontSize: "1rem", fontWeight: 800, display: "block" }}>{s.name}</span>
-                  <span style={{ fontSize: "0.8125rem", color: C.dim }}>{s.blurb}</span>
                 </span>
                 {record > 0 && (
                   <span style={{ fontSize: "0.75rem", color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
