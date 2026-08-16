@@ -3,6 +3,7 @@ import { C } from '../shared/theme.js';
 import { rand, shuffle } from '../shared/utils.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CATEGORIES, maxImposters, MIN_PLAYERS, MAX_PLAYERS } from '../data/imposterWords.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= IMPOSTER =============================
    Pass-and-play social deduction for 3-10. Everyone gets the same secret
@@ -163,7 +164,7 @@ export default function Imposter() {
           return (
             <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(255,255,255,.98)", display: "grid", placeItems: "center", padding: 20 }}>
               {!open.shown ? (
-                <button className="imp-in" onClick={() => setOpen((o) => ({ ...o, shown: true }))}
+                <button className="imp-in" onClick={() => { sfx.reveal(); setOpen((o) => ({ ...o, shown: true })); }}
                   style={{ ...cardShell, cursor: "pointer", border: `2px dashed ${C.line}` }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                     <div style={labelStyle}>{nameOf(p, i)}</div>

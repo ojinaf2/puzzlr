@@ -102,8 +102,39 @@ function thud({ at = 0, dur = 0.13, gain = 0.22, cutoff = 700 }) {
   src.stop(t0 + dur);
 }
 
-/* ------------------------------------------------------------------ cues */
+/* ------------------------------------------------------------------ cues
+   Two groups. The first are shared across the site and named for what
+   happened rather than for which game it happened in — a right answer sounds
+   the same in the flag quiz as it does in hangman, which is the point. The
+   second are Tetris's own, because a piece landing has no equivalent
+   elsewhere.
+
+   Kept quiet on purpose. These fire constantly during play, and the ones that
+   matter (a win, a mine) only read as loud if the ordinary ones are not. */
+
+const seq = (notes, { root = 440, step = 0.08, dur = 0.2, gain = 0.14, type = "triangle" } = {}) =>
+  notes.forEach((semi, i) => tone({ freq: root * 2 ** (semi / 12), at: i * step, dur, gain, type }));
+
+/* ------------------------------------------------------------- shared */
+const tap = () => tone({ freq: 380, dur: 0.035, gain: 0.07, type: "square" });
+const pop = () => tone({ freq: 520, dur: 0.09, gain: 0.12, type: "triangle", bend: 1.9 });
+const good = () => seq([0, 7], { root: 523, step: 0.07, dur: 0.13, gain: 0.11 });
+const bad = () => tone({ freq: 220, dur: 0.2, gain: 0.12, type: "sawtooth", bend: 0.55 });
+const win = () => seq([0, 4, 7, 12], { root: 523, step: 0.09, dur: 0.26, gain: 0.14 });
+const lose = () => seq([0, -3, -7, -12], { root: 400, step: 0.13, dur: 0.28, gain: 0.14, type: "square" });
+const reveal = () => seq([0, 4, 7], { root: 392, step: 0.05, dur: 0.16, gain: 0.09 });
+const flag = () => tone({ freq: 700, dur: 0.055, gain: 0.09, type: "square", bend: 1.4 });
+const drop = () => tone({ freq: 300, dur: 0.13, gain: 0.13, type: "triangle", bend: 0.5 });
+const swoosh = () => thud({ dur: 0.08, gain: 0.06, cutoff: 1900 });
+const boom = () => {
+  thud({ dur: 0.4, gain: 0.3, cutoff: 300 });
+  tone({ freq: 90, dur: 0.32, gain: 0.18, type: "sawtooth", bend: 0.4 });
+};
+
 export const sfx = {
+  tap, pop, good, bad, win, lose, reveal, flag, drop, swoosh, boom,
+
+  /* ----------------------------------------------------------- tetris */
   spawn: () => tone({ freq: 620, dur: 0.045, gain: 0.07, type: "triangle" }),
   move: () => tone({ freq: 300, dur: 0.03, gain: 0.05, type: "square" }),
   rotate: () => tone({ freq: 480, dur: 0.05, gain: 0.08, type: "square", bend: 1.25 }),
@@ -113,11 +144,11 @@ export const sfx = {
   /* The big one: an arpeggio up, then the same notes an octave higher a beat
      later, so it lands twice. */
   tetris: () => {
-    [0, 4, 7, 12, 16].forEach((semi, i) => tone({ freq: 330 * 2 ** (semi / 12), at: i * 0.055, dur: 0.16, gain: 0.16, type: "square" }));
+    seq([0, 4, 7, 12, 16], { root: 330, step: 0.055, dur: 0.16, gain: 0.16, type: "square" });
     [12, 16, 19, 24].forEach((semi, i) => tone({ freq: 330 * 2 ** (semi / 12), at: 0.3 + i * 0.05, dur: 0.22, gain: 0.12, type: "triangle" }));
   },
-  levelUp: () => [0, 5, 9].forEach((semi, i) => tone({ freq: 440 * 2 ** (semi / 12), at: i * 0.06, dur: 0.14, gain: 0.12, type: "triangle" })),
-  over: () => [0, -3, -7, -12].forEach((semi, i) => tone({ freq: 400 * 2 ** (semi / 12), at: i * 0.13, dur: 0.28, gain: 0.15, type: "square" })),
+  levelUp: () => seq([0, 5, 9], { root: 440, step: 0.06, dur: 0.14, gain: 0.12 }),
+  over: lose,
 };
 
 /* ----------------------------------------------------------------- music

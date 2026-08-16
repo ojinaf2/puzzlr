@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, tint, shade, EASE, themeCss, typeCss, useTheme, toggleTheme, THEMES } from './shared/theme.js';
-import { Btn } from './shared/ui.jsx';
+import { Btn, SoundToggle } from './shared/ui.jsx';
 import { useRoute, buildPath } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
 import { CONTENT, fill } from './content.js';
@@ -256,6 +256,7 @@ export default function App() {
           {game && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
             <span aria-hidden>←</span><span className="hdr-word"> {CONTENT.hub.backToGames}</span>
           </Btn>}
+          <SoundToggle />
           <ThemeToggle />
         </div>
       </header>

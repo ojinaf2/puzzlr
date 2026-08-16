@@ -4,6 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= TIC-TAC-TOE =============================
    Pass-and-play on one device, or online with an invite link. The online mode
@@ -52,9 +53,9 @@ function LocalTicTacToe({ navigate, onOnline }) {
   const winner = useMemo(() => { for (const [a,b,c] of LINES) if (board[a] && board[a] === board[b] && board[a] === board[c]) return { who: board[a], line: [a,b,c] }; return null; }, [board]);
   const full = board.every(Boolean);
 
-  useEffect(() => { if (winner) setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); }, [winner]);
+  useEffect(() => { if (winner) { setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); sfx.win(); } }, [winner]);
 
-  const play = (i) => { if (board[i] || winner) return; const nb = [...board]; nb[i] = xNext ? "X" : "O"; setBoard(nb); setXNext(!xNext); };
+  const play = (i) => { if (board[i] || winner) return; sfx.tap(); const nb = [...board]; nb[i] = xNext ? "X" : "O"; setBoard(nb); setXNext(!xNext); };
   const reset = () => { setBoard(Array(9).fill(null)); setXNext(true); };
 
   return (

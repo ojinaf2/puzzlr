@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, grad, paleGrad, EASE } from './theme.js';
+import { soundOn, setSoundOn } from './sound.js';
 
 /* ============================= SHARED UI =============================
    Buttons are built from three things stacked: a vertical gradient so the face
@@ -54,6 +55,32 @@ export function TileBtn({ children, onClick, disabled, noPad, style = {} }) {
         ...style,
       }}>
       {children}
+    </button>
+  );
+}
+
+/* Sound is a property of the site rather than of one game, so the switch lives
+   in the header next to the theme toggle and looks like it — one control, in
+   the same place, whichever game you are in. */
+export function SoundToggle() {
+  const [on, setOn] = useState(soundOn);
+  return (
+    <button onClick={() => { const next = !on; setOn(next); setSoundOn(next); }}
+      className="btn3d" aria-pressed={on}
+      aria-label={on ? "Turn sound off" : "Turn sound on"}
+      title={on ? "Sound on" : "Sound off"}
+      style={{
+        width: 38, height: 38, borderRadius: 12, border: "none", padding: 0, flexShrink: 0,
+        cursor: "pointer", color: on ? C.text : C.dim, background: paleGrad(C.panel2),
+        boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`, display: "grid", placeItems: "center",
+      }}>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 9v6h4l5 4V5L8 9H4z" />
+        {on
+          ? <><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" opacity=".6" /></>
+          : <path d="M17 9.5l4 5M21 9.5l-4 5" opacity=".8" />}
+      </svg>
     </button>
   );
 }

@@ -6,6 +6,7 @@ import { COUNTRIES } from '../data/countries.js';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= FLAG QUIZ ============================= */
 // Flags are bundled with the app in /public/flags/ so they load from your own
@@ -123,8 +124,11 @@ function LocalFlagQuiz({ navigate, onOnline }) {
   // Put the cursor straight in the box on each new typed question.
   useEffect(() => { if (typedMode && !result) inputRef.current?.focus(); }, [qnum, typedMode, result]);
 
+  /* Both ways of answering land here, so it is the one place the cue needs
+     to go. */
   const score1 = (correct) => {
-    if (correct) { setScore((s) => s + 1); setStreak((s) => s + 1); } else setStreak(0);
+    if (correct) { sfx.good(); setScore((s) => s + 1); setStreak((s) => s + 1); }
+    else { sfx.bad(); setStreak(0); }
   };
 
   const start = (m) => { setMode(m); setScore(0); setStreak(0); setQnum(1); makeQ(m, difficulty); };

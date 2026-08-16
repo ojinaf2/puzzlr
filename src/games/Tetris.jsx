@@ -4,7 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
-import { sfx, startMusic, stopMusic, soundOn, setSoundOn } from '../shared/sound.js';
+import { sfx, startMusic, stopMusic } from '../shared/sound.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
@@ -649,29 +649,6 @@ function MusicCredit() {
   );
 }
 
-function SoundToggle() {
-  const [on, setOn] = useState(soundOn);
-  const flip = () => { const next = !on; setOn(next); setSoundOn(next); };
-  return (
-    <button onClick={flip} aria-pressed={on} title={on ? "Sound on" : "Sound off"}
-      aria-label={on ? "Turn sound off" : "Turn sound on"}
-      className={on ? "btn3d" : "btn-flat"}
-      style={{
-        border: on ? "none" : `1px solid ${C.line}`, borderRadius: 9, cursor: "pointer",
-        width: 38, height: 38, display: "grid", placeItems: "center", flexShrink: 0,
-        background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
-        boxShadow: on ? `${GLOSS}, ${SHADOW.sm}` : "none",
-      }}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M4 9v6h4l5 4V5L8 9H4z" />
-        {on
-          ? <><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" opacity=".7" /></>
-          : <path d="M17 9.5l4 5M21 9.5l-4 5" />}
-      </svg>
-    </button>
-  );
-}
 
 /* Just the bindings, keyboard and touch, rather than a paragraph explaining
    the game to somebody who has already opened it. */
@@ -769,10 +746,10 @@ function LocalTetris({ onOnline }) {
   return (
     <Centered>
       <style>{styleBlock}</style>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
-        <div style={{ marginBottom: -14 }}><PlayTabs localLabel="Solo" onOnline={onOnline} /></div>
-        <SoundToggle />
-      </div>
+      {/* Sound has its own switch in the site header now, next to the theme
+          toggle — it applies to every game, so it belongs there rather than
+          being repeated inside each one. */}
+      <PlayTabs localLabel="Solo" onOnline={onOnline} />
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
@@ -907,7 +884,6 @@ function OnlineTetris({ roomCode, navigate }) {
         <span style={{ color: C.dim }}>vs</span>
         <span style={{ color: C.accent2, fontWeight: 800 }}>{opponent?.name ?? '—'} {opponent ? (g.wins?.[opponent.id] ?? 0) : 0}</span>
         <span style={{ color: C.dim }}>Round {g.roundNo}</span>
-        <SoundToggle />
       </div>
 
       {opponent && !opponent.connected && !over && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, grad, paleGrad, EASE, SPRING } from '../shared/theme.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { SIZE, MAX_SCORE, SPEEDS, DIRS, freshGame, step } from './snakeRules.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= SNAKE =============================
    A 15x15 board where the difficulty is purely how fast the snake moves.
@@ -55,6 +56,20 @@ export default function Snake() {
 
   const speed = SPEEDS.find((s) => s.key === difficulty) ?? SPEEDS[0];
   const over = g.status === "dead" || g.status === "won";
+
+  /* An apple is the only thing that moves the score, so the score moving is
+     the apple. Driven off state rather than from inside `step`, which the
+     loop calls through a state updater. */
+  const heard = useRef(0);
+  useEffect(() => {
+    if (g.score > heard.current) sfx.pop();
+    heard.current = g.score;
+  }, [g.score]);
+
+  useEffect(() => {
+    if (g.status === "dead") sfx.lose();
+    if (g.status === "won") sfx.win();
+  }, [g.status]);
 
   /* The clock. Keyed on status and speed so it is torn down the instant the
      game ends — an interval left running behind a results screen is the

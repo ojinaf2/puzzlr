@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, paleGrad, EASE, SPRING } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
+import { sfx } from '../shared/sound.js';
 import { SIZES, newGame, move, isOver } from './game2048Rules.js';
 
 /* ============================= 2048 =============================
@@ -273,6 +274,19 @@ export default function Game2048() {
 
   const over = useMemo(() => isOver(game), [game]);
   const showWin = game.won && !game.keepGoing;
+
+  /* Cues are driven off the state that changed rather than from inside the
+     move handlers: React may run a state updater more than once for the same
+     move, and a sound played in there would double up. */
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    // A merge is the thing worth hearing; a plain slide is a whisper under it.
+    if (game.tiles.some((t) => t.merged)) sfx.pop(); else sfx.swoosh();
+  }, [game.tiles]);
+
+  useEffect(() => { if (showWin) sfx.win(); }, [showWin]);
+  useEffect(() => { if (over) sfx.lose(); }, [over]);
 
   const start = useCallback((n) => {
     setSize(n);

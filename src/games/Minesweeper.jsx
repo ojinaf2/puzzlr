@@ -5,6 +5,7 @@ import {
   LEVELS, COVERED, REVEALED, FLAGGED, newGame, revealAt, toggleFlag, chord,
   minesLeft, bestKey, formatTime, levelOf, transpose,
 } from './minesweeperRules.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= MINESWEEPER =============================
    Rules live in ./minesweeperRules.js so they can be tested without a browser.
@@ -112,10 +113,16 @@ export default function Minesweeper() {
   }, [levelKey]);
 
   const tap = useCallback((i) => {
+    sfx.tap();
     setG((prev) => (prev.state[i] === REVEALED ? chord(prev, i) : revealAt(prev, i)));
   }, []);
 
-  const flag = useCallback((i) => setG((prev) => toggleFlag(prev, i)), []);
+  const flag = useCallback((i) => { sfx.flag(); setG((prev) => toggleFlag(prev, i)); }, []);
+
+  useEffect(() => {
+    if (g.status === "lost") sfx.boom();
+    if (g.status === "won") sfx.win();
+  }, [g.status]);
 
   /* --------------------------------- input --------------------------------- */
   const onPointerDown = (e, i) => {

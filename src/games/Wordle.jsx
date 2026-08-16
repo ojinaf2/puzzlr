@@ -8,6 +8,7 @@ import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online
 import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { ModeTabs, DailyPanel } from '../shared/dailyUi.jsx';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= WORDLE ============================= */
 const W_ROWS = 6, W_COLS = 5;
@@ -115,14 +116,17 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
 
   const submit = useCallback(() => {
     if (status !== "playing") return;
-    if (current.length !== W_COLS) { setShake(true); setTimeout(() => setShake(false), 500); showToast("Not enough letters"); return; }
-    if (!validSet.has(current)) { setShake(true); setTimeout(() => setShake(false), 500); showToast("Not in word list"); return; }
+    if (current.length !== W_COLS) { sfx.bad(); setShake(true); setTimeout(() => setShake(false), 500); showToast("Not enough letters"); return; }
+    if (!validSet.has(current)) { sfx.bad(); setShake(true); setTimeout(() => setShake(false), 500); showToast("Not in word list"); return; }
     const sc = scoreGuess(current, answer);
     const ng = [...guesses, current], ns = [...scores, sc];
     setGuesses(ng); setScores(ns); setRevealRow(ng.length - 1); setCurrent("");
     onProgress?.(ng);
-    if (current === answer) { setStatus("won"); onDone?.(true, ng.length); setTimeout(() => showToast(["Genius","Magnificent","Impressive","Splendid","Great","Phew"][ng.length - 1]), 1500); }
-    else if (ng.length === W_ROWS) { setStatus("lost"); onDone?.(false, ng.length); setTimeout(() => showToast(answer.toUpperCase()), 1500); }
+    /* The row turning over is the moment worth marking; the win or the loss
+       lands after it, once the last tile has flipped. */
+    sfx.reveal();
+    if (current === answer) { setStatus("won"); onDone?.(true, ng.length); setTimeout(() => { sfx.win(); showToast(["Genius","Magnificent","Impressive","Splendid","Great","Phew"][ng.length - 1]); }, 1500); }
+    else if (ng.length === W_ROWS) { setStatus("lost"); onDone?.(false, ng.length); setTimeout(() => { sfx.lose(); showToast(answer.toUpperCase()); }, 1500); }
   }, [current, answer, guesses, scores, status, showToast, onProgress, onDone]);
 
   const onKey = useCallback((k) => {

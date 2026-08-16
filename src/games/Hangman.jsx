@@ -4,6 +4,7 @@ import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { DIFFICULTIES, pickWord, suggestSpelling } from '../data/hangmanWords.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { DailyPanel } from '../shared/dailyUi.jsx';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= HANGMAN =============================
    Two ways to play. Against the bot it draws a word from the banks at the
@@ -53,6 +54,11 @@ export default function Hangman() {
   const lost = wrongLetters.length >= MAX_WRONG;
   const over = won || lost;
 
+  useEffect(() => {
+    if (won) sfx.win();
+    if (lost) sfx.lose();
+  }, [won, lost]);
+
   /* Guesses in the order they were made, hit or miss. It gives away how long
      the attempt took without giving away the word itself. */
   const buildDailyShare = () => {
@@ -89,6 +95,9 @@ export default function Hangman() {
 
   const guess = (letter) => {
     if (over) return;
+    // A letter already tried changes nothing, so it should not sound like it did.
+    if (guessed.includes(letter)) return;
+    if (needed.has(letter)) sfx.good(); else sfx.bad();
     setGuessed((g) => (g.includes(letter) ? g : [...g, letter]));
   };
 

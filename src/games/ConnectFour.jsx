@@ -4,6 +4,7 @@ import { Btn, Centered } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= CONNECT 4 =============================
    Pass-and-play for 2. Drawn as a single SVG so it reads like the real
@@ -148,10 +149,11 @@ function LocalConnectFour({ navigate, onOnline }) {
   }, [board]);
   const full = board.every(Boolean);
 
-  useEffect(() => { if (winner) setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); }, [winner]);
+  useEffect(() => { if (winner) { setWins((w) => ({ ...w, [winner.who]: w[winner.who] + 1 })); sfx.win(); } }, [winner]);
 
   const drop = (col) => {
     if (winner) return;
+    sfx.drop();
     for (let r = ROWS - 1; r >= 0; r--) {          // fall to the lowest free slot
       const i = idx(r, col);
       if (!board[i]) {

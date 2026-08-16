@@ -6,6 +6,7 @@ import { SPECTRA, scoreForGuess as sharedScore } from '../data/spectra.js';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
+import { sfx } from '../shared/sound.js';
 
 /* ============================= WAVELENGTH ============================= */
 /* The floor is one clue each; the rest are simply longer games. Capped at
@@ -48,6 +49,8 @@ function LocalWavelength({ navigate, onOnline }) {
 
   const doReveal = () => {
     const s = scoreForGuess(guess, target); setLastScore(s);
+    // Landing in a band or missing entirely is the whole result of a round.
+    if (s > 0) sfx.good(); else sfx.bad();
     if (activePlayer === 1) setTotalP2((v) => v + s); else setTotalP1((v) => v + s);
     setPhase("reveal");
   };
