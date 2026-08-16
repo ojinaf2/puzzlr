@@ -4,7 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { useRoom, savedName } from '../shared/useRoom.js';
-import { sfx, startMusic, stopMusic } from '../shared/sound.js';
+import { sfx, startMusic, stopMusic, pauseMusic, resumeMusic } from '../shared/sound.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
@@ -123,7 +123,11 @@ const styleBlock = `
 `;
 
 /* ------------------------------------------------------------- the engine */
-function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
+/* `active` is whether there is a game to play at all; `paused` is whether the
+   player has stepped away from one. They are separate because the music holds
+   its place for a pause and rewinds for a stop. */
+function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOver }) {
+  const live = active && !paused;
   const [game, setGame] = useState(() => newGame(seed));
   const gameRef = useRef(game);
   const [buzz, setBuzz] = useState(0);
@@ -169,26 +173,26 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
   }, []);
 
   const doMove = useCallback((dx) => {
-    if (!active) return;
+    if (!live) return;
     apply((g) => { const n = moveBy(g, dx, 0); if (n !== g) bumpLock(); return n; });
-  }, [apply, bumpLock, active]);
+  }, [apply, bumpLock, live]);
 
   const doRotate = useCallback((dir) => {
-    if (!active) return;
+    if (!live) return;
     apply((g) => { const n = rotate(g, dir); if (n !== g) { bumpLock(); sfx.rotate(); } return n; });
-  }, [apply, bumpLock, active]);
+  }, [apply, bumpLock, live]);
 
   const doHold = useCallback(() => {
-    if (!active) return;
+    if (!live) return;
     apply((g) => {
       const next = holdPiece(g);
       if (next !== g) { heldJustNow.current = true; sfx.hold(); }
       return next;
     });
-  }, [apply, active]);
+  }, [apply, live]);
 
   const doHardDrop = useCallback(() => {
-    if (!active) return;
+    if (!live) return;
     apply((g) => {
       if (g.status !== "playing" || !g.piece) return g;
       setSettle({ cells: pieceCells({ ...g.piece, y: ghostY(g) }).map(([x, y]) => `${x},${y}`), id: Date.now() });
@@ -197,7 +201,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
       sfx.land();
       return hardDrop(g);
     });
-  }, [apply, active]);
+  }, [apply, live]);
 
   const setDir = useCallback((dir) => {
     const a = acc.current;
@@ -209,7 +213,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
 
   /* --------------------------------------------------------------- loop */
   useEffect(() => {
-    if (!active || game.status === "over") return;
+    if (!live || game.status === "over") return;
     let raf = 0;
     let last = performance.now();
 
@@ -273,7 +277,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [active, game.status]);
+  }, [live, game.status]);
 
   /* The settle highlight is a flash, not a state — drop it once it has run. */
   useEffect(() => {
@@ -309,6 +313,13 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
     return () => stopMusic();
   }, [scored]);
 
+  /* Pausing holds the track where it is rather than stopping it, so resuming
+     picks up the same bar instead of starting the piece again. */
+  useEffect(() => {
+    if (!scored) return;
+    if (paused) pauseMusic(); else resumeMusic();
+  }, [paused, scored]);
+
   useEffect(() => {
     if (game.level > prevLevel.current) { prevLevel.current = game.level; setLevelUp((n) => n + 1); sfx.levelUp(); }
   }, [game.level]);
@@ -328,7 +339,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
 
   /* ------------------------------------------------------------ keyboard */
   useEffect(() => {
-    if (!active) return;
+    if (!live) return;
     const press = (k) => {
       switch (k) {
         case "arrowleft": case "a": setDir(-1); break;
@@ -379,7 +390,7 @@ function useTetrisEngine({ seed, active = true, onProgress, onOver }) {
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [active, setDir, setSoft, doRotate, doHold, doHardDrop]);
+  }, [live, setDir, setSoft, doRotate, doHold, doHardDrop]);
 
   /* --------------------------------------------------------------- touch */
   const boardTouch = {
@@ -717,15 +728,33 @@ function LocalTetris({ onOnline }) {
      than playing, and the same is true of every new board — so the gate comes
      back on a restart too, rather than only on first load. */
   const [started, setStarted] = useState(false);
-  const { game, buzz, levelUp, rushUp, rush, settle, boardTouch, actions } = useTetrisEngine({ seed, active: started });
+  const [paused, setPaused] = useState(false);
+  const { game, buzz, levelUp, rushUp, rush, settle, boardTouch, actions } =
+    useTetrisEngine({ seed, active: started, paused });
 
-  const newGame = useCallback(() => { setSeed(randomSeed()); setStarted(false); }, []);
+  const newGame = useCallback(() => { setSeed(randomSeed()); setStarted(false); setPaused(false); }, []);
 
   useEffect(() => {
     if (game.score > best) { setBest(game.score); writeBest(game.score); }
   }, [game.score, best]);
 
   const over = game.status === "over";
+  const canPause = started && !over;
+
+  /* Escape is the pause key everywhere else, so it is the pause key here.
+     Deliberately only in solo play: an online board that stops while the
+     opponent's keeps falling is not a pause, it is a way of never topping
+     out. */
+  useEffect(() => {
+    if (!canPause) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setPaused((p) => !p);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canPause]);
 
   // Any key that would have played the game starts it instead.
   useEffect(() => {
@@ -780,6 +809,11 @@ function LocalTetris({ onOnline }) {
               <Btn onClick={() => setStarted(true)}>Start</Btn>
             </BoardOverlay>
           )}
+          {paused && !over && (
+            <BoardOverlay title="Paused" body="Esc to carry on.">
+              <Btn onClick={() => setPaused(false)}>Resume</Btn>
+            </BoardOverlay>
+          )}
           {over && (
             <BoardOverlay title="Topped out"
               body={`${game.score} points, ${game.lines} lines, level ${game.level}.`}>
@@ -804,6 +838,11 @@ function LocalTetris({ onOnline }) {
       <Controls />
 
       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+        {canPause && (
+          <Btn variant="ghost" onClick={() => setPaused((p) => !p)}>
+            {paused ? "Resume" : "Pause"}
+          </Btn>
+        )}
         <Btn variant="subtle" onClick={newGame}>Restart</Btn>
       </div>
 

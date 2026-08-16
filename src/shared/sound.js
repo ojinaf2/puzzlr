@@ -204,4 +204,15 @@ export function stopMusic() {
   }
 }
 
+/* Pause is not stop. A paused game is still a game, so the track holds its
+   place rather than rewinding — coming back to the same bar is the difference
+   between a pause and a restart. */
+export function pauseMusic() {
+  if (el) el.pause();
+}
+
+export function resumeMusic() {
+  if (wantMusic && enabled) play();
+}
+
 export const musicPlaying = () => !!el && !el.paused;
