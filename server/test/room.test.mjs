@@ -288,8 +288,10 @@ console.log('\n— hosting, joining and the browse list —');
   priv.send({ type: 'join', create: true, visibility: 'private', code: 'PRV001', gameId: 'connect4', playerId: 'p-pr', name: 'Grace' });
   await priv.nextState();
   const l2 = await (await mf.dispatchFetch('http://x/rooms?gameId=connect4')).json();
-  const p2 = l2.rooms.find((r) => r.code === 'PRV001');
+  // Found by host, not by code: a private listing no longer carries its code.
+  const p2 = l2.rooms.find((r) => r.host === 'Grace');
   check('a private room is flagged private', p2 && p2.visibility === 'private', p2 && p2.visibility);
+  check('and does not hand out its code', p2 && p2.code === undefined, String(p2?.code));
 
   // The list is per game.
   const other = await (await mf.dispatchFetch('http://x/rooms?gameId=wordle')).json();
@@ -303,6 +305,36 @@ console.log('\n— hosting, joining and the browse list —');
   check('a full room leaves the list', !l3.rooms.some((r) => r.code === 'PUB001'), JSON.stringify(l3.rooms));
 
   host.close(); guest.close(); priv.close();
+}
+
+console.log('\n— a private room keeps its code to itself —');
+{
+  const host = await connect('VISCH1');
+  host.send({ type: 'join', create: true, visibility: 'public', code: 'VISCH1', gameId: 'wordle', playerId: 'p-vis', name: 'Vera' });
+  await host.nextState();
+
+  const listed = async () => (await (await mf.dispatchFetch('http://x/rooms?gameId=wordle')).json())
+    .rooms.find((r) => r.host === 'Vera');
+
+  const pub = await listed();
+  check('a public room publishes its code', pub?.code === 'VISCH1', JSON.stringify(pub));
+
+  host.send({ type: 'visibility', visibility: 'private' });
+  await host.nextState();
+  const priv = await listed();
+  check('going private is reflected at once', priv?.visibility === 'private', priv?.visibility);
+  check('it is still listed, so the lock can be shown', !!priv);
+  /* The code is the only credential a room has. Publishing it for a private
+     room made the setting decorative — anyone reading the browse response
+     could join. */
+  check('but the code is withheld', priv && priv.code === undefined, String(priv?.code));
+
+  host.send({ type: 'visibility', visibility: 'public' });
+  await host.nextState();
+  const again = await listed();
+  check('and comes back when it is public again', again?.code === 'VISCH1', String(again?.code));
+
+  host.close();
 }
 
 console.log('\n— a tetris match, played to a topout —');

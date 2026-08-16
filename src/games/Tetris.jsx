@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, paleGrad, SPRING } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
-import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
+import { useRoom, savedName } from '../shared/useRoom.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
@@ -597,18 +597,42 @@ function BoardOverlay({ title, body, children }) {
 function LocalTetris({ onOnline }) {
   const [seed, setSeed] = useState(randomSeed);
   const [best, setBest] = useState(readBest);
-  const { game, buzz, levelUp, settle, boardTouch, actions } = useTetrisEngine({ seed });
+  /* Nothing falls until the player says so. Landing on the page with a piece
+     already dropping means the first few seconds are spent catching up rather
+     than playing, and the same is true of every new board — so the gate comes
+     back on a restart too, rather than only on first load. */
+  const [started, setStarted] = useState(false);
+  const { game, buzz, levelUp, settle, boardTouch, actions } = useTetrisEngine({ seed, active: started });
+
+  const newGame = useCallback(() => { setSeed(randomSeed()); setStarted(false); }, []);
 
   useEffect(() => {
     if (game.score > best) { setBest(game.score); writeBest(game.score); }
   }, [game.score, best]);
 
   const over = game.status === "over";
+
+  // Any key that would have played the game starts it instead.
+  useEffect(() => {
+    if (started || over) return;
+    const go = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const k = e.key.toLowerCase();
+      if (!KEY_SET.has(k) && k !== "enter") return;
+      e.preventDefault();
+      setStarted(true);
+    };
+    window.addEventListener("keydown", go);
+    return () => window.removeEventListener("keydown", go);
+  }, [started, over]);
+
   const intro = CONTENT.intros?.tetris;
 
   return (
     <Centered>
       <style>{styleBlock}</style>
+      <PlayTabs localLabel="Solo" onOnline={onOnline} />
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
@@ -625,12 +649,17 @@ function LocalTetris({ onOnline }) {
         </div>
 
         <div className="tt-board" style={{ position: "relative" }}>
-          <Well game={game} buzz={buzz} settle={settle} boardTouch={boardTouch} />
+          <Well game={game} buzz={buzz} settle={settle} boardTouch={boardTouch} frozen={!started} />
           <TetrisBadge buzz={buzz} />
+          {!started && !over && (
+            <BoardOverlay title="Ready?" body="Arrows or A and D to move, space to rotate, down to drop.">
+              <Btn onClick={() => setStarted(true)}>Start</Btn>
+            </BoardOverlay>
+          )}
           {over && (
             <BoardOverlay title="Topped out"
               body={`${game.score} points, ${game.lines} lines, level ${game.level}.`}>
-              <Btn onClick={() => setSeed(randomSeed())}>New game</Btn>
+              <Btn onClick={newGame}>New game</Btn>
             </BoardOverlay>
           )}
         </div>
@@ -651,9 +680,7 @@ function LocalTetris({ onOnline }) {
       {intro && <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, textAlign: "center" }}>{intro}</p>}
 
       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
-        <Btn variant="subtle" onClick={() => setSeed(randomSeed())}>Restart</Btn>
-        {/* Hidden until a room server is configured, so nobody is sent to a dead end. */}
-        {roomServerUrl() && <Btn variant="subtle" onClick={onOnline}>Play online instead</Btn>}
+        <Btn variant="subtle" onClick={newGame}>Restart</Btn>
       </div>
     </Centered>
   );

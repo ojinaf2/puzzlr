@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
+import { useRoom, savedName } from '../shared/useRoom.js';
 
 /* ============================= TIC-TAC-TOE =============================
    Pass-and-play on one device, or online with an invite link. The online mode
@@ -59,6 +59,7 @@ function LocalTicTacToe({ navigate, onOnline }) {
 
   return (
     <Centered>
+      <PlayTabs localLabel="Same device" onOnline={onOnline} />
       <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10 }}>
         <span style={{ color: C.accent, fontWeight: 800 }}>X &nbsp;{wins.X}</span>
         <span style={{ color: C.dim }}>vs</span>
@@ -70,10 +71,6 @@ function LocalTicTacToe({ navigate, onOnline }) {
       <Board board={board} winLine={winner?.line} winnerMark={winner?.who} onPlay={play} disabled={!!winner} />
       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={reset} variant="ghost">{winner || full ? "Play again" : "Reset board"}</Btn>
-        {/* Hidden until a room server is configured, so nobody is sent to a dead end. */}
-        {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => onOnline()}>Play online instead</Btn>
-        )}
       </div>
     </Centered>
   );

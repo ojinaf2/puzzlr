@@ -80,7 +80,14 @@ export class Directory {
         if (now - entry.updatedAt > LISTING_STALE_MS) { delete rooms[code]; pruned = true; continue; }
         if (gameId && entry.gameId !== gameId) continue;
         if (entry.status !== 'lobby' || entry.players >= entry.max) continue;
-        open.push(entry);
+        /* A private room is listed so you can see somebody is playing, but its
+           code never leaves this object. Publishing it made "private" purely
+           decorative: the code is the only credential a room has, and it was
+           sitting in the browse response for anyone to read and join with.
+           Withholding it here is what actually enforces the setting — no
+           client, however edited, can join a private room it was not given the
+           code for. */
+        open.push(entry.visibility === 'private' ? { ...entry, code: undefined } : entry);
       }
       if (pruned) await this.ctx.storage.put('rooms', rooms);
 

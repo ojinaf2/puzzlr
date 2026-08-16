@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, SHADOW, GLOSS_SOFT, PILL, paleGrad, EASE } from './theme.js';
 import { Btn, Centered, hStyle, pStyle } from './ui.jsx';
-import { saveName, savedName } from './useRoom.js';
+import { saveName, savedName, roomServerUrl } from './useRoom.js';
 import { listRooms, joinRoom, setIntent, cleanCode, CODE_RE } from './rooms.js';
 import { makeRoomCode } from './router.js';
 
@@ -9,6 +9,41 @@ import { makeRoomCode } from './router.js';
    banner, and the waiting-room screens shown before play begins. */
 
 const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.dim, fontWeight: 700 };
+
+/* How you want to play, at the top of the game rather than as an afterthought
+   at the bottom of it. Playing online is a way to play, so it belongs beside
+   the other ways — the same reasoning that put Wordle's "Play with Friend"
+   next to Daily and Unlimited instead of under the keyboard.
+
+   The online tab navigates rather than setting state, because online play is
+   a route of its own: `/tetris/online` survives a refresh and can be linked.
+
+   Renders nothing at all when no room server is configured. A lone tab
+   reading "Solo" explains nothing, and an online tab that leads nowhere is
+   worse than no tab. */
+export function PlayTabs({ localLabel = "Solo", onlineLabel = "Play online", onOnline }) {
+  if (!roomServerUrl()) return null;
+  const tab = (label, active, onClick) => (
+    <button onClick={onClick} disabled={active}
+      style={{
+        background: active ? C.accent : "transparent", color: active ? "#fff" : C.dim,
+        border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
+        fontWeight: 700, fontFamily: "inherit", cursor: active ? "default" : "pointer",
+        transition: `background .15s ${EASE}, color .15s ${EASE}`,
+      }}>
+      {label}
+    </button>
+  );
+  return (
+    <div style={{
+      display: "flex", gap: 4, background: C.panel, border: `1px solid ${C.line}`,
+      borderRadius: 9, padding: 4, marginBottom: 14,
+    }}>
+      {tab(localLabel, true)}
+      {tab(onlineLabel, false, onOnline)}
+    </div>
+  );
+}
 
 export const GlobeIcon = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -211,6 +246,27 @@ function JoinPanel({ gameId, gameName, busy, error, enter, onBack }) {
 
   const ready = CODE_RE.test(code);
 
+  /* The list is polled every few seconds, so a tap can always land on an
+     entry that has just changed underneath it — the host flipping the room to
+     private is the case that actually happens. Re-read the list at the moment
+     of the tap and only go if the room is still there and still open, rather
+     than acting on what was true five seconds ago. */
+  const enterFromList = async (roomCode) => {
+    try {
+      const fresh = await listRooms(gameId);
+      setRooms(fresh);
+      if (!fresh.some((r) => r.code === roomCode)) {
+        setListError("That room isn't open any more — ask whoever's hosting for the code.");
+        return;
+      }
+      setListError(null);
+    } catch {
+      /* Can't reach the server to check. The join itself is about to fail in
+         a more informative way, so let it try. */
+    }
+    enter(roomCode);
+  };
+
   return (
     <Centered>
       <h2 style={hStyle}>Join a game</h2>
@@ -251,10 +307,12 @@ function JoinPanel({ gameId, gameName, busy, error, enter, onBack }) {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {rooms?.map((r) => {
+          {rooms?.map((r, i) => {
             const isPrivate = r.visibility === 'private';
+            /* Private entries arrive without a code — the server withholds it —
+               so they have no natural key. */
             return (
-              <div key={r.code} style={{
+              <div key={r.code ?? `private-${i}`} style={{
                 display: "flex", alignItems: "center", gap: 12,
                 background: paleGrad(C.panel), borderRadius: 12, padding: "11px 14px",
                 boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
@@ -275,14 +333,14 @@ function JoinPanel({ gameId, gameName, busy, error, enter, onBack }) {
                   </span>
                 </span>
                 {isPrivate ? (
-                  /* Deliberately not a one-tap join. A private room is listed
-                     so you can see it is there, but getting in still needs the
-                     code its host gave you. */
+                  /* Not a one-tap join, and not merely hidden either: the
+                     server does not send the code for a private room, so there
+                     is nothing here to join with even for an edited client. */
                   <span style={{ fontSize: "0.72rem", color: C.dim, background: PILL, padding: "5px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
                     Code needed
                   </span>
                 ) : (
-                  <Btn onClick={() => enter(r.code)} disabled={busy}
+                  <Btn onClick={() => enterFromList(r.code)} disabled={busy}
                     style={{ padding: "8px 16px", fontSize: "0.8125rem", flex: "0 0 auto" }}>Join</Btn>
                 )}
               </div>

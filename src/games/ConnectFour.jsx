@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { C } from '../shared/theme.js';
 import { Btn, Centered } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
+import { useRoom, savedName } from '../shared/useRoom.js';
 
 /* ============================= CONNECT 4 =============================
    Pass-and-play for 2. Drawn as a single SVG so it reads like the real
@@ -166,6 +166,7 @@ function LocalConnectFour({ navigate, onOnline }) {
   return (
     <Centered>
       <style>{c4Style}</style>
+      <PlayTabs localLabel="Same device" onOnline={onOnline} />
       <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10, alignItems: "center" }}>
         <span style={{ color: RED, fontWeight: 800 }}>Red &nbsp;{wins.R}</span>
         <span style={{ color: C.dim }}>vs</span>
@@ -182,9 +183,6 @@ function LocalConnectFour({ navigate, onOnline }) {
 
       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={reset} variant="ghost">{winner || full ? "Play again" : "Reset board"}</Btn>
-        {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => onOnline()}>Play online instead</Btn>
-        )}
       </div>
     </Centered>
   );

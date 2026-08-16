@@ -4,8 +4,8 @@ import { rand } from '../shared/utils.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { SPECTRA, scoreForGuess as sharedScore } from '../data/spectra.js';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../shared/online.jsx';
+import { useRoom, savedName } from '../shared/useRoom.js';
 
 /* ============================= WAVELENGTH ============================= */
 /* The floor is one clue each; the rest are simply longer games. Capped at
@@ -61,13 +61,11 @@ function LocalWavelength({ navigate, onOnline }) {
 
   if (phase === "intro") return (
     <Centered>
+      <PlayTabs localLabel="Same device" onOnline={onOnline} />
       <h2 style={hStyle}>Wavelength</h2>
       <p style={pStyle}>Pass-and-play for 2. One player sees a hidden target on a spectrum and gives a one-word clue. The other slides the dial to guess where it landed. Closer = more points. Six rounds, take turns.</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
         <Btn onClick={() => { setRound(1); setTotalP1(0); setTotalP2(0); newRound(); }}>Start</Btn>
-        {roomServerUrl() && (
-          <Btn variant="subtle" onClick={() => onOnline()}>Play online with friends</Btn>
-        )}
       </div>
     </Centered>
   );

@@ -4,8 +4,8 @@ import { rand, shuffle } from '../shared/utils.js';
 import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { COUNTRIES } from '../data/countries.js';
 import { makeRoomCode } from '../shared/router.js';
-import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../shared/online.jsx';
+import { useRoom, savedName } from '../shared/useRoom.js';
 
 /* ============================= FLAG QUIZ ============================= */
 // Flags are bundled with the app in /public/flags/ so they load from your own
@@ -160,6 +160,7 @@ function LocalFlagQuiz({ navigate, onOnline }) {
 
   if (!mode) return (
     <Centered>
+      <PlayTabs localLabel="Solo" onOnline={onOnline} />
       <h2 style={hStyle}>Flag Quiz</h2>
       <p style={{ ...pStyle, marginBottom: 10 }}>Two ways to play. Pick a difficulty, then a mode:</p>
 
@@ -179,11 +180,6 @@ function LocalFlagQuiz({ navigate, onOnline }) {
         <Btn onClick={() => start("flag2country")}>Flag → Country</Btn>
         <Btn onClick={() => start("country2flag")} variant="ghost">Country → Flag</Btn>
       </div>
-      {roomServerUrl() && (
-        <Btn variant="subtle" style={{ marginTop: 18 }} onClick={() => onOnline()}>
-          Race friends online
-        </Btn>
-      )}
     </Centered>
   );
 
