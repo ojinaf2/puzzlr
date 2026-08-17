@@ -106,6 +106,15 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
     initial.includes(answer) ? "won" : initial.length >= W_ROWS ? "lost" : "playing");
   const [toast, setToast] = useState("");
   const [shake, setShake] = useState(false);
+  /* The answer, once given away, stays given away. A toast that clears itself
+     is no use to somebody who looked away for two seconds, and on the daily
+     there is no second chance to go and find it.
+
+     Initialised true for a board that was already lost when it loaded, which
+     is what a refresh after a failed daily looks like — there is no submit to
+     hang a timer off in that case. */
+  const [answerShown, setAnswerShown] = useState(
+    () => initial.length >= W_ROWS && !initial.includes(answer));
   // Restored rows are already coloured in; only new guesses animate.
   const [revealRow, setRevealRow] = useState(initial.length - 1);
   const tt = useRef(null);
@@ -126,7 +135,8 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
        lands after it, once the last tile has flipped. */
     sfx.reveal();
     if (current === answer) { setStatus("won"); onDone?.(true, ng.length); setTimeout(() => { sfx.win(); showToast(["Genius","Magnificent","Impressive","Splendid","Great","Phew"][ng.length - 1]); }, 1500); }
-    else if (ng.length === W_ROWS) { setStatus("lost"); onDone?.(false, ng.length); setTimeout(() => { sfx.lose(); showToast(answer.toUpperCase()); }, 1500); }
+    // Held back until the last row has finished turning over, then kept.
+    else if (ng.length === W_ROWS) { setStatus("lost"); onDone?.(false, ng.length); setTimeout(() => { sfx.lose(); setAnswerShown(true); }, 1500); }
   }, [current, answer, guesses, scores, status, showToast, onProgress, onDone]);
 
   const onKey = useCallback((k) => {
@@ -181,6 +191,12 @@ function WordleBoard({ answer, initial, onProgress, onDone, onNext }) {
           );
         })}
       </div>
+      {status === "lost" && answerShown && (
+        <div style={{ fontSize: "1rem", color: C.dim, marginBottom: 12, textAlign: "center" }}>
+          The word was{" "}
+          <b style={{ color: C.text, textTransform: "uppercase", letterSpacing: ".04em" }}>{answer}</b>
+        </div>
+      )}
       {onNext && status !== "playing" && (
         <div style={{ display: "flex", gap: 10, marginBottom: 12, justifyContent: "center" }}>
           <Btn onClick={onNext}>{status === "won" ? "Next word" : "Try another"}</Btn>
