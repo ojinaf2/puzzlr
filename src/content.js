@@ -17,6 +17,7 @@ export const CONTENT = {
     cardCta: "Play →",
     backToGames: "All games",
     footer: "{name} — a small collection of games. Built for fun.",
+    byline: "By Naf",
   },
   games: {
     wordle: {

@@ -100,6 +100,75 @@ function GameCard({ game, onClick }) {
   );
 }
 
+/* The byline and its links out.
+
+   The marks are drawn as simple stroked glyphs in the same 24x24, 2px style as
+   the header's theme and sound icons, rather than pasted-in brand artwork.
+   That keeps them consistent with everything else on the page, costs no
+   requests, and cannot 404 the way the flags once did. They take their colour
+   from the surrounding text, so both themes are handled for free. */
+const SOCIALS = [
+  {
+    name: "Instagram",
+    href: "https://www.instagram.com/ojinaf/",
+    icon: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.2" cy="6.8" r="1.15" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  {
+    name: "TikTok",
+    href: "https://www.tiktok.com/@ojinaf",
+    icon: (
+      <>
+        <path d="M13.6 4v11.3a3.8 3.8 0 1 1-3.3-3.77" />
+        <path d="M13.6 4.2c.45 2.4 2.05 3.9 4.4 4.1" />
+      </>
+    ),
+  },
+  {
+    name: "LinkedIn",
+    href: "https://www.linkedin.com/in/nftalem-asefaw-305931216/",
+    icon: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="4" />
+        <circle cx="7.8" cy="8.1" r="1.1" fill="currentColor" stroke="none" />
+        <path d="M7.8 11.2v5.4" />
+        <path d="M11.9 16.6v-5.4M11.9 13.5a2.5 2.5 0 0 1 5 0v3.1" />
+      </>
+    ),
+  },
+];
+
+function Byline() {
+  return (
+    <div style={{
+      marginTop: 14, display: "flex", gap: 12, alignItems: "center",
+      justifyContent: "center", flexWrap: "wrap",
+    }}>
+      <span style={{ fontSize: "0.8125rem", color: C.dim }}>{CONTENT.hub.byline}</span>
+      <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        {SOCIALS.map((s) => (
+          <a key={s.name} href={s.href} target="_blank" rel="noopener noreferrer"
+            className="social" aria-label={s.name} title={s.name}
+            style={{
+              display: "grid", placeItems: "center", width: 32, height: 32,
+              borderRadius: 9, color: C.dim,
+            }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              {s.icon}
+            </svg>
+          </a>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function Landing({ onPick }) {
   return (
     <div style={{ width: "100%", maxWidth: 860, margin: "0 auto", padding: "0 20px", position: "relative" }}>
@@ -216,6 +285,11 @@ export default function App() {
            things to go, so the game name, the back arrow and the theme toggle
            all still fit on one line. */
         @media (max-width: 460px) { .hdr-word { display: none } }
+        /* The footer links: dim until you reach for them, then the brand
+           colour, which is the same language the game cards already speak. */
+        .social { transition: color .18s ${EASE}, background .18s ${EASE}; -webkit-tap-highlight-color: transparent; }
+        .social:hover { color: ${C.accent} !important; background: var(--wash); }
+        .social:active { background: var(--wash-strong); }
         .btn-flat { -webkit-tap-highlight-color: transparent; transition: background .18s ${EASE}, color .18s ${EASE}; }
         .btn-flat:hover { background: var(--wash); color: ${C.text}; }
         .btn-flat:active { background: var(--wash-strong); }
@@ -275,8 +349,9 @@ export default function App() {
         )}
       </main>
 
-      <footer style={{ borderTop: `1px solid ${C.line}`, padding: "26px 20px", textAlign: "center", color: C.dim, fontSize: "0.8125rem", background: `linear-gradient(180deg, transparent, ${C.panel})` }}>
-        {fill(CONTENT.hub.footer, { name: HUB_NAME })}
+      <footer style={{ borderTop: `1px solid ${C.line}`, padding: "26px 20px 30px", textAlign: "center", color: C.dim, fontSize: "0.8125rem", background: `linear-gradient(180deg, transparent, ${C.panel})` }}>
+        <div>{fill(CONTENT.hub.footer, { name: HUB_NAME })}</div>
+        <Byline />
       </footer>
     </div>
   );
