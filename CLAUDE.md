@@ -334,6 +334,18 @@ The flick latches per touch (`s.dropped`). Without it a finger still travelling
 fires again on the next move event and slams the piece that has just spawned
 into the stack too.
 
+**Anything that shortens the fall time has to trim the accumulator** —
+`bankedDrop`, and it is not optional. The loop banks elapsed milliseconds and
+spends a row each time it crosses the current fall time, so when the threshold
+collapses underneath the bank the whole bank is spent at once. Pressing soft
+drop at level one turned half a second of banked waiting into **five rows in a
+single frame**: the piece lurched down the board and only then started falling
+smoothly. Soft drop, a score tier and a level up all shorten it.
+
+Trimmed downwards only. A threshold that grows keeps its bank, and a long
+frame at high speed still legitimately catches up several rows — capping that
+would quietly make the endgame slower than the curve says it is.
+
 ## Flags
 
 `public/flags/*.svg` are served from our own domain on purpose. They were on a

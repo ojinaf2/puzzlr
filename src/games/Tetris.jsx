@@ -11,7 +11,7 @@ import { sfx, startMusic, stopMusic, pauseMusic, resumeMusic } from '../shared/s
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
-  cellsOf, pieceCells, fallMs, speedMultiplier, packRows, BASE_MULTIPLIER,
+  cellsOf, pieceCells, fallMs, bankedDrop, speedMultiplier, packRows, BASE_MULTIPLIER,
 } from './tetrisRules.js';
 
 /* ============================= TETRIS =============================
@@ -184,7 +184,7 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
   const [rushUp, setRushUp] = useState(0);
   const [settle, setSettle] = useState(null);
 
-  const acc = useRef({ drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 });
+  const acc = useRef({ drop: 0, speed: Infinity, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 });
   const touch = useRef(null);
   const prevLevel = useRef(1);
   const prevRush = useRef(BASE_MULTIPLIER);
@@ -200,7 +200,7 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
      a new seed means a new board. */
   useEffect(() => {
     const fresh = newGame(seed);
-    acc.current = { drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
+    acc.current = { drop: 0, speed: Infinity, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
     prevLevel.current = 1;
     prevRush.current = BASE_MULTIPLIER;
     setSettle(null);
@@ -300,6 +300,13 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
            slower than it was already falling. */
         const natural = fallMs(g.level, g.score);
         const speed = a.soft ? Math.min(natural, SOFT_MS) : natural;
+        /* Pressing soft drop, crossing a score tier and gaining a level all
+           shorten this threshold, and whatever the accumulator had banked
+           against the old one would otherwise be spent in a single frame.
+           See `bankedDrop` — this is the line that stops the piece lurching
+           four or five rows the instant the key goes down. */
+        a.drop = bankedDrop(a.drop, speed, a.speed);
+        a.speed = speed;
         a.drop += dt;
         while (a.drop >= speed) {
           a.drop -= speed;

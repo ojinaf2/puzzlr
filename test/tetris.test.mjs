@@ -324,6 +324,47 @@ const nextPiece = (g) => ({ ...hardDrop(g), board: empty() });
     [0, 8000, 14000, 20000, 26000, 34000].every((s, i, a) => i === 0 || fallMs(5, s) <= fallMs(5, a[i - 1])));
 }
 
+/* --------------------------------------------------------- banked fall time
+   The bug this exists for: pressing soft drop used to make the piece lurch
+   four or five rows in a single frame before settling into its proper pace.
+   The accumulator had been filling toward a 667ms gravity threshold, and the
+   moment soft drop dropped that threshold to 90ms every banked millisecond
+   was spent at once. */
+{
+  const { bankedDrop, fallMs, gravityMs: grav } = R;
+  const SOFT = 90;
+
+  /* How many rows a frame would step, given what is banked. */
+  const rows = (banked, speed) => Math.floor(banked / speed);
+
+  const gravity = fallMs(1, 0);                 // the level-one threshold
+  const banked = gravity * 0.75;                // most of the way to a natural step
+
+  ok('the bug reproduces without the fix', rows(banked, SOFT) >= 4);
+  eq('and is gone with it', rows(bankedDrop(banked, SOFT, gravity), SOFT), 1);
+  ok('exactly one row, so the key still feels immediate',
+    rows(bankedDrop(banked, SOFT, gravity), SOFT) === 1);
+
+  eq('a bank below the new threshold is left alone',
+    bankedDrop(30, SOFT, gravity), 30);
+  eq('letting go of soft drop keeps the bank',
+    bankedDrop(60, gravity, SOFT), 60);
+
+  /* Crossing a score tier and gaining a level shorten the same threshold, and
+     had the same lurch in miniature. */
+  ok('crossing a score tier cannot cash the bank either',
+    rows(bankedDrop(fallMs(1, 0) * 0.99, fallMs(1, 20000), fallMs(1, 0)), fallMs(1, 20000)) <= 1);
+  ok('nor can a level up',
+    rows(bankedDrop(grav(1) * 0.99, grav(6), grav(1)), grav(6)) <= 1);
+
+  /* But a long frame at high speed still catches up honestly — capping that
+     would quietly make the endgame slower than the curve says it is. */
+  const fast = fallMs(20, 34000);
+  ok('a slow frame at speed still steps several rows',
+    rows(bankedDrop(80, fast, fast), fast) >= 3);
+  eq('because an unchanged threshold never trims', bankedDrop(80, fast, fast), 80);
+}
+
 /* --------------------------------------------------------- frozen states */
 {
   const over = { ...newGame(1), status: 'over' };

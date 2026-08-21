@@ -390,3 +390,25 @@ export const speedMultiplier = (score = 0) =>
 export function fallMs(level, score = 0) {
   return Math.max(RUSH_FLOOR_MS, gravityMs(level) / speedMultiplier(score));
 }
+
+/* ------------------------------------------------------- banked fall time
+
+   The loop counts elapsed milliseconds into an accumulator and spends one row
+   every time it crosses the current fall time. That is fine until the fall
+   time *changes underneath the bank*, which is what pressing soft drop does:
+   at level one the accumulator is filling toward 667ms, and the moment the
+   threshold collapses to 90ms every millisecond already banked is spent at
+   once. Half a second of waiting became five rows in a single frame — the
+   piece lurched down the board and only then began falling smoothly.
+
+   So when the threshold drops, the bank is trimmed to a single step's worth.
+   One row comes out immediately, which is what makes the key feel responsive,
+   and the rest of the wait is forfeited rather than cashed in.
+
+   Only ever trimmed *downwards*. A threshold that grows (letting go of soft
+   drop) keeps its bank, and a long frame at high speed still legitimately
+   catches up several rows — capping that would quietly make the endgame
+   slower than the curve says it is. */
+export function bankedDrop(banked, speed, prevSpeed) {
+  return speed < prevSpeed ? Math.min(banked, speed) : banked;
+}
