@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
    needs three shapes of URL:
 
      /                     the landing page
+     /leaderboards         every game's board on one page
      /wordle               a game, played locally on this device
+     /wordle/board         that game's own leaderboard tab
      /wordle/ABCD24        an online room, which is what invite links point at
 
    Room codes are uppercase and unambiguous: no O/0 or I/1, so they survive
@@ -31,14 +33,26 @@ export const isRoomCode = (s) =>
    an alphabet with no lower case in it. */
 export const ONLINE_SEGMENT = "online";
 
+/* Likewise for the leaderboard: `/tetris/board` is a place, so it can be
+   linked to from the hub page and survives a refresh. Neither segment can be
+   mistaken for a room code, which is six characters and has no lower case. */
+export const BOARD_SEGMENT = "board";
+
+/* The one page that is not a game. Plural, so it cannot collide with a future
+   game id called "leaderboard" — and it reads as what it is. */
+export const BOARDS_ROUTE = "leaderboards";
+
+const MODES = [ONLINE_SEGMENT, BOARD_SEGMENT];
+
 /* pathname -> { gameId, roomCode, mode } */
 export const parsePath = (pathname) => {
   const [gameId = "", raw = ""] = pathname.split("/").filter(Boolean);
   const upper = raw.toUpperCase();
+  const lower = raw.toLowerCase();
   return {
     gameId: gameId || null,
     roomCode: isRoomCode(upper) ? upper : null,
-    mode: raw.toLowerCase() === ONLINE_SEGMENT ? ONLINE_SEGMENT : null,
+    mode: MODES.includes(lower) ? lower : null,
   };
 };
 

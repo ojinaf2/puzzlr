@@ -4,7 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { sfx } from '../shared/sound.js';
 import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useScoreSubmit, useBoardView } from '../shared/leaderboard.js';
 import { SIZES, newGame, move, isOver } from './game2048Rules.js';
 
 /* ============================= 2048 =============================
@@ -257,14 +257,14 @@ const KEYS = {
 };
 const SWIPE_MIN = 24;                         // px, so a tap is never a move
 
-export default function Game2048() {
+export default function Game2048({ mode, navigate }) {
   const [size, setSize] = useState(4);
   /* The game and its one-level undo snapshot live in a single piece of state,
      so a move records the position to go back to in the same update that
      changes it. Two useStates would let a fast second press land between them. */
   const [{ game, prev }, setState] = useState(() => ({ game: newGame(4), prev: null }));
   const [best, setBest] = useState(() => readBest(4));
-  const [view, setView] = useState("play");
+  const [view, setView] = useBoardView('2048', mode, navigate);
   const board = useScoreSubmit("2048");
   const touch = useRef(null);
 

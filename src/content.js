@@ -88,6 +88,11 @@ export const CONTENT = {
   },
   leaderboard: {
     tab: "Leaderboard",
+    hubLink: "See the leaderboards",
+    pageTitle: "Leaderboards",
+    pageBlurb: "The best anyone has managed, on every game that keeps a score. Beat one and your name goes up.",
+    seeAll: "Full board →",
+    offline: "The leaderboards are not reachable right now.",
     loading: "Loading the board…",
     empty: "Nobody is on the board yet. Post a result and you will be first.",
     retry: "Try again",

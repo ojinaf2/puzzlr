@@ -7,7 +7,7 @@ import {
 } from './minesweeperRules.js';
 import { sfx } from '../shared/sound.js';
 import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useScoreSubmit, useBoardView } from '../shared/leaderboard.js';
 
 /* ============================= MINESWEEPER =============================
    Rules live in ./minesweeperRules.js so they can be tested without a browser.
@@ -55,13 +55,13 @@ const shapeFor = (key) => {
   return isNarrow() && level.cols > level.rows ? transpose(level) : level;
 };
 
-export default function Minesweeper() {
+export default function Minesweeper({ mode, navigate }) {
   const [screen, setScreen] = useState("menu");
   const [levelKey, setLevelKey] = useState("easy");
   const [g, setG] = useState(() => newGame("easy"));
   const [seconds, setSeconds] = useState(0);
   const [best, setBest] = useState(null);
-  const [view, setView] = useState("play");
+  const [view, setView] = useBoardView('minesweeper', mode, navigate);
   const board = useScoreSubmit("minesweeper");
   const press = useRef(null);
   const startedAt = useRef(0);

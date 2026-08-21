@@ -25,6 +25,8 @@ until you deploy the Worker as well. Both, every time.
 ```
 src/
   Puzzlr.jsx          hub shell: header, landing, routing, footer. No game logic.
+  LeaderboardsPage.jsx  /leaderboards — every ranked game on one page. Beside
+                      Puzzlr.jsx, not in shared/: it needs the game registry.
   shared/
     router.js         History API routing and room codes
     theme.js          the C palette every game imports
@@ -144,6 +146,26 @@ hours. One copy means the referee and the table it draws cannot disagree.
 A game with several variants gets several boards, with a row of chips to
 switch between them — a 9x9 time is not a 16x30 time, and a 4x4 2048 score is
 not a 6x6 one. A game with one variant shows no chips.
+
+### Where they live
+
+- `/leaderboards` is the hub: every ranked game's top three on one page,
+  linked from under the landing page's headline. It is the only route that is
+  neither a game nor the landing page, so `Puzzlr.jsx` branches on it much as
+  it does on `/admin`. `src/LeaderboardsPage.jsx` sits beside `Puzzlr.jsx`
+  rather than in `shared/` **because it needs the game registry** for names,
+  icons and accents — and the registry imports every game, each of which
+  imports `shared/leaderboardUi.jsx`. In `shared/` that would be a cycle.
+- `/<game>/board` opens a game with its Leaderboard tab selected, which is
+  what the hub links to. `useBoardView` in `shared/leaderboard.js` is the one
+  place that knows this: it seeds the tab from the route and *replaces* the
+  URL as tabs change, so the board can be linked to and survives a refresh
+  without stuffing the back button with tab toggles.
+
+The hub is a summary and the game's own tab is the full table — including the
+other variants. Two places showing the same hundred rows would be one too
+many. Per-game `/board` URLs are deliberately kept out of the sitemap: each is
+the same page as `/<game>` with a tab preselected.
 
 ### What they can and cannot promise
 

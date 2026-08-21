@@ -8,7 +8,7 @@ import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../sha
 import { useRoom } from '../shared/useRoom.js';
 import { savedName } from '../shared/identity.js';
 import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit, submitScore } from '../shared/leaderboard.js';
+import { useScoreSubmit, submitScore, useBoardView } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= FLAG QUIZ ============================= */
@@ -95,7 +95,7 @@ export default function FlagQuiz({ roomCode, mode, navigate }) {
     return <OnlineEntry gameId="flags" gameName="Flag Quiz" navigate={navigate}
       onCancel={() => navigate('flags')} />;
   }
-  return <LocalFlagQuiz navigate={navigate} onOnline={() => navigate('flags', 'online')} />;
+  return <LocalFlagQuiz navigate={navigate} routeMode={mode} onOnline={() => navigate('flags', 'online')} />;
 }
 
 /* ------------------------------------------------------- the best streak
@@ -122,7 +122,7 @@ const writeBest = (variant, streak) => {
   try { localStorage.setItem(bestKey(variant), String(streak)); } catch { /* private mode */ }
 };
 
-function LocalFlagQuiz({ navigate, onOnline }) {
+function LocalFlagQuiz({ navigate, onOnline, routeMode }) {
   const [mode, setMode] = useState(null); // "flag2country" | "country2flag"
   const [difficulty, setDifficulty] = useState("easy"); // "easy" | "hard"
   const [q, setQ] = useState(null);
@@ -134,7 +134,7 @@ function LocalFlagQuiz({ navigate, onOnline }) {
   const [qnum, setQnum] = useState(0);
   const [listOpen, setListOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1); // index into suggestions, -1 = none
-  const [view, setView] = useState("local");
+  const [view, setView] = useBoardView('flags', routeMode, navigate, 'local');
   const board = useScoreSubmit("flags");
   const inputRef = useRef(null);
 

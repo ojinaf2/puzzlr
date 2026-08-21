@@ -10,7 +10,7 @@ import { savedName } from '../shared/identity.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { ModeTabs, DailyPanel } from '../shared/dailyUi.jsx';
 import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useScoreSubmit, useBoardView } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= WORDLE ============================= */
@@ -34,7 +34,7 @@ export default function Wordle({ roomCode, mode, navigate }) {
     return <OnlineEntry gameId="wordle" gameName="Wordl Unlimited" navigate={navigate}
       onCancel={() => navigate('wordle')} />;
   }
-  return <LocalWordle navigate={navigate} onOnline={() => navigate('wordle', 'online')} />;
+  return <LocalWordle navigate={navigate} routeMode={mode} onOnline={() => navigate('wordle', 'online')} />;
 }
 
 const DAILY_ID = "wordle";
@@ -44,9 +44,12 @@ const EMOJI = { correct: "🟩", present: "🟨", absent: "⬜" };
    single board. The board itself is remounted whenever that changes, which is
    what `key` is doing below — it saves having to reset eight pieces of state
    by hand every time the player switches mode or asks for another word. */
-function LocalWordle({ navigate, onOnline }) {
+function LocalWordle({ navigate, routeMode, onOnline }) {
   const day = todayNumber();
-  const [mode, setMode] = useState("daily");
+  /* Wordle's tab state *is* its mode, so the leaderboard is one of four
+     values here rather than a separate view flag. `useBoardView` only cares
+     which one means "board". */
+  const [mode, setMode] = useBoardView(DAILY_ID, routeMode, navigate, "daily");
   const [record, setRecord] = useState(() => todaysRecord(DAILY_ID, day));
   const [round, setRound] = useState(0);
   const [practiceAnswer, setPracticeAnswer] = useState(() => answerList[rand(answerList.length)]);

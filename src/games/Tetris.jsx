@@ -4,7 +4,7 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
 import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useScoreSubmit, useBoardView } from '../shared/leaderboard.js';
 import { useRoom } from '../shared/useRoom.js';
 import { savedName } from '../shared/identity.js';
 import { sfx, startMusic, stopMusic, pauseMusic, resumeMusic } from '../shared/sound.js';
@@ -723,7 +723,7 @@ function BoardOverlay({ title, body, children }) {
 }
 
 /* ------------------------------------------------------------ local play */
-function LocalTetris({ onOnline }) {
+function LocalTetris({ onOnline, routeMode, navigate }) {
   const [seed, setSeed] = useState(randomSeed);
   const [best, setBest] = useState(readBest);
   /* Nothing falls until the player says so. Landing on the page with a piece
@@ -732,7 +732,7 @@ function LocalTetris({ onOnline }) {
      back on a restart too, rather than only on first load. */
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [view, setView] = useState("local");
+  const [view, setView] = useBoardView('tetris', routeMode, navigate, 'local');
   const board = useScoreSubmit("tetris");
   /* Reading the leaderboard pauses the game. The tab is reachable mid-drop,
      and a piece that keeps falling behind a table of other people's scores
@@ -1025,5 +1025,5 @@ export default function Tetris({ roomCode, mode, navigate }) {
     return <OnlineEntry gameId="tetris" gameName="Tetris" navigate={navigate}
       onCancel={() => navigate('tetris')} />;
   }
-  return <LocalTetris onOnline={() => navigate('tetris', 'online')} />;
+  return <LocalTetris onOnline={() => navigate('tetris', 'online')} routeMode={mode} navigate={navigate} />;
 }

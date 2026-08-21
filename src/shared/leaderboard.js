@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { httpBase } from './useRoom.js';
+import { BOARD_SEGMENT } from './router.js';
 import { myScoreId, savedName, useSavedName } from './identity.js';
 import { LEADERBOARDS, boundsFor, sortEntries } from '../data/leaderboards.js';
 
@@ -175,6 +176,27 @@ export function useScoreSubmit(gameId) {
     }, []),
     submit,
   };
+}
+
+/* ------------------------------------------------- the /<game>/board route
+   Which tab a game is showing, kept in the address bar so the leaderboards
+   page can link straight at it and a refresh lands where you were looking.
+
+   `replace` rather than push, deliberately: a back button full of tab
+   toggles is nobody's idea of navigation, and the thing a player wants to go
+   back to is the page they arrived from.
+
+   `playKey` is whatever the game calls its non-leaderboard tab — "local" for
+   the ones with an online mode, "daily" for Wordle, "play" for the rest. */
+export function useBoardView(gameId, routeMode, navigate, playKey = 'play') {
+  const [view, setView] = useState(routeMode === BOARD_SEGMENT ? 'board' : playKey);
+
+  const show = useCallback((next) => {
+    setView(next);
+    navigate?.(gameId, next === 'board' ? BOARD_SEGMENT : null, { replace: true });
+  }, [gameId, navigate]);
+
+  return [view, show];
 }
 
 /* Where a player sits on a board they may not be visible on. Returns null

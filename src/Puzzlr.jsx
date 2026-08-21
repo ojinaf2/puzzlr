@@ -2,9 +2,11 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, tint, shade, EASE, themeCss, typeCss, useTheme, toggleTheme, THEMES } from './shared/theme.js';
 import { Btn, SoundToggle } from './shared/ui.jsx';
 import { NameButton } from './shared/leaderboardUi.jsx';
-import { useRoute, buildPath } from './shared/router.js';
+import { leaderboardsEnabled } from './shared/leaderboard.js';
+import { useRoute, buildPath, BOARDS_ROUTE } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
 import { CONTENT, fill } from './content.js';
+import LeaderboardsPage from './LeaderboardsPage.jsx';
 
 /* ============================= HUB SHELL =============================
    Header, landing page, routing and footer. Contains no game logic — every
@@ -170,7 +172,40 @@ function Byline() {
   );
 }
 
-function Landing({ onPick }) {
+/* The way in to the leaderboards, under the headline rather than beside the
+   cards — it is not a game, and a fourteenth card pretending to be one would
+   be worse than a link that says what it is. A real anchor, so it opens in a
+   new tab like everything else here. */
+function BoardsLink({ onOpen }) {
+  const [hover, setHover] = useState(false);
+  if (!leaderboardsEnabled()) return null;
+  const go = (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    onOpen();
+  };
+  return (
+    <a href={`/${BOARDS_ROUTE}`} onClick={go} className="btn3d"
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 9, marginTop: 4,
+        padding: "11px 22px", borderRadius: 999, textDecoration: "none",
+        fontSize: "0.875rem", fontWeight: 700, fontFamily: "inherit", color: C.text,
+        background: paleGrad(C.panel2), boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
+      }}>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.gold}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+        <path d="M7 5.5H4.6v1.2A3.4 3.4 0 0 0 8 10.1M17 5.5h2.4v1.2A3.4 3.4 0 0 1 16 10.1" />
+        <path d="M12 14v3.2M8.6 20h6.8l-.7-2.8H9.3L8.6 20Z" />
+      </svg>
+      {CONTENT.leaderboard.hubLink}
+      <span aria-hidden style={{ transition: `transform .28s ${EASE}`, transform: hover ? "translateX(3px)" : "none" }}>→</span>
+    </a>
+  );
+}
+
+function Landing({ onPick, onBoards }) {
   return (
     <div style={{ width: "100%", maxWidth: 860, margin: "0 auto", padding: "0 20px", position: "relative" }}>
       {/* A warm bloom behind the headline, so the page does not start on flat
@@ -182,6 +217,7 @@ function Landing({ onPick }) {
         <h1 className="grad-text" style={{ fontFamily: "var(--font-head)", fontSize: "clamp(2.375rem, 7vw, 3.875rem)", fontWeight: 700, lineHeight: 1.05, margin: "0 0 16px", letterSpacing: "-.01em", background: `linear-gradient(170deg, ${C.text} 30%, ${C.accent2})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
           {CONTENT.hub.headlineTop}<br />{CONTENT.hub.headlineBottom}
         </h1>
+        <BoardsLink onOpen={onBoards} />
       </section>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, paddingBottom: 60 }}>
         {GAMES.map((g) => <GameCard key={g.id} game={g} onClick={() => onPick(g.id)} />)}
@@ -210,13 +246,18 @@ const setMeta = (selector, attr, value) => {
   if (el) el.setAttribute(attr, value);
 };
 
-function useDocumentMeta(game, theme) {
+const BOARDS_TITLE = `Leaderboards | Puzzlr`;
+const BOARDS_DESC = `The best scores, streaks and times anyone has posted on Puzzlr's browser games. No sign-up — beat one and your name goes up.`;
+
+function useDocumentMeta(game, theme, boardsRoute) {
   useEffect(() => {
-    const title = game ? `${game.name} | Puzzlr` : HOME_TITLE;
-    const desc = game ? game.blurb : HOME_DESC;
+    const title = boardsRoute ? BOARDS_TITLE : game ? `${game.name} | Puzzlr` : HOME_TITLE;
+    const desc = boardsRoute ? BOARDS_DESC : game ? game.blurb : HOME_DESC;
     /* Deliberately without the room code: invite links are private and
-       transient, and every room for a game is the same page to a crawler. */
-    const url = SITE + buildPath(game ? game.id : null);
+       transient, and every room for a game is the same page to a crawler.
+       The leaderboards page is one URL for everybody, so it canonicalises to
+       itself rather than to the landing page. */
+    const url = SITE + (boardsRoute ? `/${BOARDS_ROUTE}` : buildPath(game ? game.id : null));
     document.title = title;
     setMeta('meta[name="description"]', "content", desc);
     setMeta('meta[property="og:title"]', "content", title);
@@ -225,7 +266,7 @@ function useDocumentMeta(game, theme) {
     setMeta('meta[name="twitter:title"]', "content", title);
     setMeta('meta[name="twitter:description"]', "content", desc);
     setMeta('link[rel="canonical"]', "href", url);
-  }, [game]);
+  }, [game, boardsRoute]);
 
   // Tints the browser chrome on a phone, so it does not stay cream in dark mode.
   useEffect(() => {
@@ -239,7 +280,9 @@ export default function App() {
   const [{ gameId, roomCode, mode }, navigate] = useRoute();
   const game = GAMES.find((g) => g.id === gameId);
   const theme = useTheme();
-  useDocumentMeta(game, theme);
+  /* The one route that is not a game and not the landing page. */
+  const boardsRoute = gameId === BOARDS_ROUTE;
+  useDocumentMeta(game, theme, boardsRoute);
 
   /* `import.meta.env.DEV` is replaced with a literal at build time, so in a
      production bundle this is `false && …` — the branch is dead code and the
@@ -248,8 +291,8 @@ export default function App() {
 
   // An unknown game in the URL falls back to the landing page rather than a blank screen.
   useEffect(() => {
-    if (gameId && !game && !adminRoute) navigate(null, null, { replace: true });
-  }, [gameId, game, adminRoute, navigate]);
+    if (gameId && !game && !adminRoute && !boardsRoute) navigate(null, null, { replace: true });
+  }, [gameId, game, adminRoute, boardsRoute, navigate]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [gameId, roomCode, mode]);
 
@@ -327,6 +370,10 @@ export default function App() {
             <div style={{ width: 32, height: 32, borderRadius: 10, background: LOGO, display: "grid", placeItems: "center", fontWeight: 900, fontSize: "1.0625rem", color: "#fff", boxShadow: `${GLOSS}, ${SHADOW.sm}`, textShadow: "0 1px 1px rgba(74,53,36,.3)" }}>P</div>
             <span className="hdr-word" style={{ fontFamily: "var(--font-head)", fontSize: "1.4375rem", fontWeight: 700 }}>{HUB_NAME}</span>
           </a>
+          {boardsRoute && <>
+            <span className="hdr-word" style={{ color: C.line }}>/</span>
+            <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: C.gold, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{CONTENT.leaderboard.pageTitle}</span>
+          </>}
           {game && <>
             <span className="hdr-word" style={{ color: C.line }}>/</span>
             {/* Truncates rather than pushing the controls off screen. */}
@@ -334,7 +381,7 @@ export default function App() {
           </>}
           {roomCode && <span style={{ fontSize: "0.75rem", fontWeight: 700, color: C.dim, background: C.panel, padding: "3px 9px", borderRadius: 20, letterSpacing: ".08em", flexShrink: 0 }}>{roomCode}</span>}
           <div style={{ flex: 1, minWidth: 8 }} />
-          {game && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+          {(game || boardsRoute) && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
             <span aria-hidden>←</span><span className="hdr-word"> {CONTENT.hub.backToGames}</span>
           </Btn>}
           {/* Your name is a property of the site, like the sound and the
@@ -351,7 +398,9 @@ export default function App() {
           <Suspense fallback={null}>
             <AdminPanel onClose={() => navigate(null)} />
           </Suspense>
-        ) : !game ? <Landing onPick={(id) => navigate(id)} /> : (
+        ) : boardsRoute ? (
+          <LeaderboardsPage navigate={navigate} />
+        ) : !game ? <Landing onPick={(id) => navigate(id)} onBoards={() => navigate(BOARDS_ROUTE)} /> : (
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
             {/* roomCode and navigate are passed down for the online modes; the
                 local-only games simply ignore them. */}

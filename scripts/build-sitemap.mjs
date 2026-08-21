@@ -32,11 +32,22 @@ const today = new Date().toISOString().slice(0, 10);
 const url = (loc, priority) =>
   `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${priority}</priority>\n  </url>`;
 
+/* The one page that is not a game and not the landing page. Listed by hand
+   because there is no registry to read it out of — and listed at all because
+   it is a real destination with its own title and content, not a view of
+   something already in here. Per-game `/x/board` URLs are deliberately left
+   out: each is the same page as `/x` with a tab preselected. */
+const EXTRA = ["leaderboards"];
+
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[url(`${SITE}/`, "1.0"), ...ids.map((id) => url(`${SITE}/${id}`, "0.8"))].join('\n')}
+${[
+  url(`${SITE}/`, "1.0"),
+  ...EXTRA.map((path) => url(`${SITE}/${path}`, "0.7")),
+  ...ids.map((id) => url(`${SITE}/${id}`, "0.8")),
+].join('\n')}
 </urlset>
 `;
 
 writeFileSync(out, xml);
-console.log(`sitemap: ${ids.length + 1} urls (${ids.join(', ')})`);
+console.log(`sitemap: ${ids.length + EXTRA.length + 1} urls (${ids.join(', ')}; ${EXTRA.join(', ')})`);

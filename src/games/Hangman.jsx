@@ -5,7 +5,7 @@ import { DIFFICULTIES, pickWord, suggestSpelling } from '../data/hangmanWords.js
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { DailyPanel } from '../shared/dailyUi.jsx';
 import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
-import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useScoreSubmit, useBoardView } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= HANGMAN =============================
@@ -25,13 +25,13 @@ const cleanWord = (raw) => raw.toUpperCase().replace(/[^A-Z ]/g, "").replace(/\s
 const DAILY_ID = "hangman";
 const DAILY_DIFFICULTY = "medium";
 
-export default function Hangman() {
+export default function Hangman({ mode: routeMode, navigate }) {
   const [screen, setScreen] = useState("menu");   // menu | botSetup | localSetup | setWord | handoff | play | final
   const [mode, setMode] = useState(null);         // bot | local | daily
   /* The menu's own tab strip. Hangman picks its mode with three buttons and a
      setup screen behind each, which reads well as it is — so the strip sits
      above that rather than trying to fold "play the bot" into a tab. */
-  const [view, setView] = useState("play");
+  const [view, setView] = useBoardView(DAILY_ID, routeMode, navigate);
   const board = useScoreSubmit(DAILY_ID);
   const [difficulty, setDifficulty] = useState("easy");
   const [rounds, setRounds] = useState(5);
