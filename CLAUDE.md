@@ -36,6 +36,7 @@ src/
     rooms.js          browsing open rooms, and testing a code before joining
     daily.js          daily puzzle selection, streaks, sharing
     dailyUi.jsx       the Daily/Practice tabs and the end-of-puzzle stats panel
+    icons.jsx         the glyphs the mode tabs and cards use instead of words
     identity.js       the two ids and the site-wide display name
     leaderboard.js    fetching and posting scores; the name prompt hook
     leaderboardUi.jsx the ranked table, the name dialog, the header control
@@ -249,6 +250,28 @@ hangman. Its dictionaries are devDependencies, so nothing new ships.
   - Icon gradients need ids unique across the whole of `games/index.jsx`. They
     all render on the landing page at once, and a duplicate id silently makes
     one icon adopt another's colours.
+- **Mode tabs are glyphs, not words** (August 2026). One silhouette for solo,
+  two for a pair or a shared device, three for a group; a calendar for Daily,
+  an infinity for Unlimited, a trophy for the leaderboard, a globe for online.
+  They live in `shared/icons.jsx` and are drawn rather than loaded, like the
+  game icons and the footer's social marks.
+  - **Daily keeps its word beside the icon.** It is the one glyph that is not
+    self-evident, and it is the default tab. Everything else is icon-only.
+  - **An icon-only tab must still carry its `label`.** `Tabs` puts it on
+    `aria-label` and `title`, so it is announced and it gets a tooltip. A
+    button with no accessible name is a bug, not a style choice.
+  - The people icons are solid silhouettes and the rest are 2px strokes. That
+    split is deliberate — figures read better filled at 16px — and the strokes
+    match the header's theme and sound switches.
+  - Overlapping figures are separated with a **mask**, not a white outline,
+    because they sit on an accent fill when selected and on nothing when not.
+    Mask ids come from `useId()`: several render on one page and a duplicate
+    id would silently make one icon adopt another's mask, exactly like the
+    gradient ids in `games/index.jsx`.
+  - The player count on a game card comes from parsing `CONTENT.games[id]
+    .players` ("1-6 players" → the group icon, on its maximum). The string
+    stays the source of truth and becomes the icon's label, so the editor at
+    /admin still governs it.
 - Times New Roman for headings and the logo, Libre Franklin for everything else.
 - Animations live in a `<style>` block inside the game that uses them, and are
   always disabled under `prefers-reduced-motion`.
@@ -279,6 +302,37 @@ game played with a friend over an invite link.
 
 It is a weaker trade for the leaderboards, which were added anyway in August
 2026 with that understood — see below.
+
+## Tetris speed and drops
+
+The fall time is `gravityMs(level) / speedMultiplier(score)`, floored at 25ms.
+Both halves are in `tetrisRules.js` and both are node-tested.
+
+- **Every game opens at `BASE_MULTIPLIER` (1.5), not at the bare level curve.**
+  An opening piece drifting down over a full second is a menu, not a game.
+- The score tiers step by halves — 8k, 14k, 20k, 26k, 34k for 2 / 2.5 / 3 /
+  3.5 / 3.7 — and stop there. The old curve went 2x, 4x, 6x, which meant
+  crossing 16,000 roughly halved your thinking time in one step and usually
+  ended the run within a piece or two. Fast and survivable beats fast and
+  brief. Above level 11 the 25ms floor is reached either way, so the very top
+  end is unchanged.
+- `RushChip` and the speed-up flash both compare against `BASE_MULTIPLIER`
+  rather than 1, or every game would open flashing "×1.5".
+
+**Soft drop is not a hard drop.** `SOFT_MS` is 90, which crosses the board in
+under two seconds — plainly faster than gravity at every level, but a fall you
+can watch and steer. It was 35ms, which is twenty-eight rows a second, and at
+that speed the down key was a hard drop with extra steps. The three verbs are
+deliberately distinct:
+
+| | speed it up | drop it now |
+| --- | --- | --- |
+| keyboard | hold ↓ | Ctrl |
+| touch | hold on the board | flick downwards |
+
+The flick latches per touch (`s.dropped`). Without it a finger still travelling
+fires again on the next move event and slams the piece that has just spawned
+into the stack too.
 
 ## Flags
 
@@ -383,6 +437,16 @@ Every one of these has already cost an afternoon:
   hid it.
 - **Two ids in `identity.js` is not duplication.** The room id is public to
   everyone in your room; the score id is not. See the leaderboard section.
+- **Tetris's mobile layout needs `display: contents` on `.tt-side`.** The two
+  column wrappers stop generating boxes so their panels become grid items of
+  `.tt-wrap` and can be placed one by one — Score and Best sharing the top
+  row, which is the whole point: five panels in one row gave the score about
+  sixty pixels and the number spilled out of its box past 10,000. The mobile
+  grid also has to restate `align-items: stretch`, because the desktop flex
+  rule sets `flex-start` and grid honours it.
+- **No backticks inside Tetris's `styleBlock`.** It is a template literal, so
+  a stray backtick in a CSS comment ends the string and the build fails
+  somewhere unhelpful.
 
 ## Deliberately not built
 

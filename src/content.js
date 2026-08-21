@@ -84,7 +84,7 @@ export const CONTENT = {
     snakeControls: "Arrow keys or WASD, swipe on the board, or use the pad. Space pauses.",
     game2048: "Arrow keys or WASD, or swipe the board. Matching tiles merge into one — but each tile only merges once per move.",
     tetrisKeys: "← → move · ↑ rotate · ↓ soft drop · Ctrl hard drop · Space hold",
-    tetrisTouch: "Swipe to move · Tap to rotate · Press and hold to drop · or use the buttons",
+    tetrisTouch: "Swipe to move · Tap to rotate · Hold to fall faster · Flick down to drop",
   },
   leaderboard: {
     tab: "Leaderboard",

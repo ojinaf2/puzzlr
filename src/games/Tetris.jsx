@@ -11,7 +11,7 @@ import { sfx, startMusic, stopMusic, pauseMusic, resumeMusic } from '../shared/s
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
   holdPiece, canFall, softDrop, hardDrop, ghostY, lock, resolveClear,
-  cellsOf, pieceCells, fallMs, speedMultiplier, packRows,
+  cellsOf, pieceCells, fallMs, speedMultiplier, packRows, BASE_MULTIPLIER,
 } from './tetrisRules.js';
 
 /* ============================= TETRIS =============================
@@ -38,7 +38,17 @@ const LOCK_RESETS = 15;       // ...but not forever
 const CLEAR_MS = 240;         // how long the completed rows flash before going
 const DAS_MS = 150;           // hold a direction this long before it repeats
 const ARR_MS = 45;            // then a step this often
-const SOFT_MS = 35;           // soft drop speed, or gravity if already faster
+/* Soft drop: a row every this often, or gravity if that is already quicker.
+
+   It used to be 35ms, which is twenty-eight rows a second — the whole board
+   in under three quarters of a second. That is not a faster fall, it is a
+   hard drop with extra steps, and it made the down key useless for what it is
+   actually for: nudging a piece down a few rows and still steering it. At
+   90ms a held key crosses the board in under two seconds, which is plainly
+   faster than gravity at every level but is still a fall you can watch and
+   change your mind about. Dropping instantly is what Ctrl and a downward
+   swipe are for. */
+const SOFT_MS = 90;
 const TAP_MS = 220;           // longer than this on the board is a hold, not a tap
 const SWIPE_PX = 22;
 
@@ -66,19 +76,55 @@ const styleBlock = `
   }
   .tt-side { display: flex; flex-direction: column; gap: 10px; width: 116px; flex-shrink: 0; }
 
-  /* Below this the three columns become three stacked rows: the panels go
-     horizontal and sit above the board, so the playfield keeps the full width
-     and the thumb buttons stay reachable underneath. */
+  /* On a phone the three desktop columns become a small grid above the board.
+
+     THE POINT OF THE GRID IS THE SCORE.
+     All five stat panels used to share one row, which gave the score about
+     sixty pixels — fine for 900, not fine for 42,150, and the number spilled
+     out of its box the moment a run got good. Score and Best now take half
+     the width each on the top row, which is room for six figures and the rush
+     chip beside them. Level, Lines and Hold drop to the row underneath, and
+     Next moves alongside them and stands upright.
+
+     display:contents is what makes it work: the two .tt-side wrappers stop
+     generating boxes, so their panels become grid items of .tt-wrap itself
+     and can be placed individually. Without it they are two opaque columns
+     and none of this is reachable from CSS.
+
+     (No backticks in here — this whole block is a template literal.) */
   @media (max-width: 700px) {
-    .tt-wrap { flex-direction: column; align-items: center; }
-    .tt-side { flex-direction: row; width: 100%; max-width: 320px; gap: 8px; }
-    .tt-side > * { flex: 1 1 0; min-width: 0; }
-    .tt-left { order: 1 } .tt-right { order: 2 } .tt-board { order: 3 }
-    .tt-stat-big { font-size: 1.25rem !important }
-    /* Stacked, the queue is taller than the stats row and shoves the board
-       down the page. Lying it on its side costs nothing and keeps the
-       playfield in reach. */
-    .tt-next { flex-direction: row !important; justify-content: center; align-items: center; gap: 14px !important }
+    .tt-wrap {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) auto;
+      gap: 8px;
+      width: 100%;
+      max-width: 340px;
+      margin-inline: auto;
+      /* The flex rule above sets flex-start, which grid honours as start and
+         which would leave the three short panels floating at the top of the
+         row the upright queue has made tall. */
+      align-items: stretch;
+    }
+    .tt-side { display: contents; }
+    .tt-p-score { grid-area: 1 / 1 / 2 / 3 }
+    .tt-p-best  { grid-area: 1 / 3 / 2 / 5 }
+    .tt-p-level { grid-area: 2 / 1 / 3 / 2 }
+    .tt-p-lines { grid-area: 2 / 2 / 3 / 3 }
+    .tt-p-hold  { grid-area: 2 / 3 / 3 / 4 }
+    .tt-p-next  { grid-area: 2 / 4 / 3 / 5 }
+    .tt-board   { grid-area: 3 / 1 / 4 / 5; justify-self: center }
+    /* The three small ones fill the row the upright queue defines, rather
+       than sitting short with a gap underneath it. */
+    .tt-p-level, .tt-p-lines, .tt-p-hold {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    /* Upright — the desktop default, which the old mobile rule used to lie on
+       its side — and tighter, since it now sets the height of its row. */
+    .tt-next { gap: 5px !important }
+    /* Both get the big treatment here. Inline styles win over a class, which
+       is what the !important is for; the panels are wide enough now that six
+       figures and the rush chip fit side by side. */
+    .tt-p-score .tt-stat-big, .tt-p-best .tt-stat-big { font-size: 1.375rem !important }
   }
 
   @keyframes tt-flash {
@@ -141,7 +187,7 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
   const acc = useRef({ drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 });
   const touch = useRef(null);
   const prevLevel = useRef(1);
-  const prevRush = useRef(1);
+  const prevRush = useRef(BASE_MULTIPLIER);
   const prevPiece = useRef(null);
   /* A hold swaps the piece, which looks exactly like a spawn from the outside.
      Without this the two cues fire together and it reads as a stutter. */
@@ -156,7 +202,7 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
     const fresh = newGame(seed);
     acc.current = { drop: 0, lock: 0, clear: 0, das: 0, arr: 0, dir: 0, soft: false, resets: 0 };
     prevLevel.current = 1;
-    prevRush.current = 1;
+    prevRush.current = BASE_MULTIPLIER;
     setSettle(null);
     gameRef.current = fresh;
     setGame(fresh);
@@ -399,7 +445,7 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
   const boardTouch = {
     onTouchStart: (e) => {
       const t = e.touches[0];
-      touch.current = { x: t.clientX, y: t.clientY, at: performance.now(), moved: false };
+      touch.current = { x: t.clientX, y: t.clientY, at: performance.now(), moved: false, dropped: false };
     },
     onTouchMove: (e) => {
       const s = touch.current;
@@ -411,9 +457,16 @@ function useTetrisEngine({ seed, active = true, paused = false, onProgress, onOv
         s.x = t.clientX;            // let a continued drag keep stepping
         s.moved = true;
       } else if (dy > SWIPE_PX * 1.6 && Math.abs(dy) > Math.abs(dx)) {
-        setSoft(true);              // dragged downwards: fall faster
+        /* A flick downwards drops it, the way Ctrl does on a keyboard. Once
+           per touch: without the latch a finger still travelling would fire
+           again on the next move event and slam the piece that had just
+           spawned into the stack too. */
         s.moved = true;
+        if (!s.dropped) { s.dropped = true; setSoft(false); doHardDrop(); }
       }
+      /* Holding still is the soft drop — press and it falls faster, let go
+         and it stops. The two gestures are deliberately different verbs:
+         holding is "keep going", flicking is "now". */
       if (!s.moved && performance.now() - s.at > TAP_MS) setSoft(true);
     },
     onTouchEnd: () => {
@@ -466,9 +519,9 @@ function MiniPiece({ type, size = 13 }) {
   );
 }
 
-function Panel({ label, children, style = {} }) {
+function Panel({ label, children, className, style = {} }) {
   return (
-    <div style={{
+    <div className={className} style={{
       background: paleGrad(C.panel), borderRadius: 14, padding: "9px 10px",
       boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`, textAlign: "center", ...style,
     }}>
@@ -486,9 +539,12 @@ const statValue = (big) => ({
   fontVariantNumeric: "tabular-nums", color: C.text,
 });
 
-/* The score tier, worn next to the score that earned it. */
+/* The score tier, worn next to the score that earned it. Nothing to say until
+   the score has actually bought some speed — every game now opens above the
+   plain level curve, so a chip reading ×1.5 from the first piece would be
+   decoration rather than news. */
 function RushChip({ rush }) {
-  if (rush <= 1) return null;
+  if (rush <= BASE_MULTIPLIER) return null;
   return (
     <span style={{
       fontSize: "0.625rem", fontWeight: 800, color: "#fff", background: COLOURS.Z,
@@ -801,7 +857,7 @@ function LocalTetris({ onOnline, routeMode, navigate }) {
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
-          <Panel label="Score" style={{ position: "relative", overflow: "hidden" }}>
+          <Panel label="Score" className="tt-p-score" style={{ position: "relative", overflow: "hidden" }}>
             <div className="tt-stat-big" style={statValue(true)}>
               {game.score}<RushChip rush={rush} />
             </div>
@@ -809,15 +865,15 @@ function LocalTetris({ onOnline, routeMode, navigate }) {
               position: "absolute", inset: 0, background: COLOURS.Z, opacity: 0, pointerEvents: "none",
             }} />
           </Panel>
-          <Panel label="Best"><div style={statValue(false)}>{Math.max(best, game.score)}</div></Panel>
-          <Panel label="Level" style={{ position: "relative", overflow: "hidden" }}>
+          <Panel label="Best" className="tt-p-best"><div className="tt-stat-big" style={statValue(false)}>{Math.max(best, game.score)}</div></Panel>
+          <Panel label="Level" className="tt-p-level" style={{ position: "relative", overflow: "hidden" }}>
             <div style={statValue(false)}>{game.level}</div>
             <div key={levelUp} className={levelUp ? "tt-levelup" : undefined} style={{
               position: "absolute", inset: 0, background: C.accent, opacity: 0, pointerEvents: "none",
             }} />
           </Panel>
-          <Panel label="Lines"><div style={statValue(false)}>{game.lines}</div></Panel>
-          <Panel label="Hold"><MiniPiece type={game.hold} /></Panel>
+          <Panel label="Lines" className="tt-p-lines"><div style={statValue(false)}>{game.lines}</div></Panel>
+          <Panel label="Hold" className="tt-p-hold"><MiniPiece type={game.hold} /></Panel>
         </div>
 
         <div className="tt-board" style={{ position: "relative" }}>
@@ -842,7 +898,7 @@ function LocalTetris({ onOnline, routeMode, navigate }) {
         </div>
 
         <div className="tt-side tt-right">
-          <Panel label="Next">
+          <Panel label="Next" className="tt-p-next">
             <div className="tt-next" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
               {game.queue.slice(0, PREVIEW).map((t, i) => (
                 <MiniPiece key={i} type={t} size={i === 0 ? 13 : 10} />

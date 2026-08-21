@@ -365,18 +365,28 @@ export function gravityMs(level) {
    teleport. */
 export const RUSH_FLOOR_MS = 25;
 
+/* The game does not start at the level curve's own pace — it starts half as
+   fast again, and climbs from there. An opening piece that drifts down over
+   most of a second is a menu, not a game. */
+export const BASE_MULTIPLIER = 1.5;
+
+/* Half-step tiers rather than doublings. The old curve went 2x, 4x, 6x, which
+   meant crossing 16,000 roughly halved the time you had to think — a cliff
+   rather than a climb, and the run usually ended within a piece or two of it.
+   These step by 0.5 and stop at 3.7, so the endgame is fast and survivable
+   instead of fast and brief. */
 export const SPEED_TIERS = [
-  { from: 24000, multiplier: 6 },
-  { from: 16000, multiplier: 4 },
+  { from: 34000, multiplier: 3.7 },
+  { from: 26000, multiplier: 3.5 },
+  { from: 20000, multiplier: 3 },
+  { from: 14000, multiplier: 2.5 },
   { from: 8000, multiplier: 2 },
 ];
 
 export const speedMultiplier = (score = 0) =>
-  SPEED_TIERS.find((t) => score >= t.from)?.multiplier ?? 1;
+  SPEED_TIERS.find((t) => score >= t.from)?.multiplier ?? BASE_MULTIPLIER;
 
 /* What the game should actually use: the level curve, then the score tier. */
 export function fallMs(level, score = 0) {
-  const gravity = gravityMs(level);
-  const rush = speedMultiplier(score);
-  return rush === 1 ? gravity : Math.max(RUSH_FLOOR_MS, gravity / rush);
+  return Math.max(RUSH_FLOOR_MS, gravityMs(level) / speedMultiplier(score));
 }
