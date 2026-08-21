@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { C } from './theme.js';
 import { Btn, Tabs } from './ui.jsx';
+import { CalendarIcon, InfinityIcon, TwoPeopleIcon, TrophyIcon } from './icons.jsx';
 import { copyText, useCountdown } from './daily.js';
 import { boardOf } from '../data/leaderboards.js';
 import { leaderboardsEnabled } from './leaderboard.js';
@@ -23,11 +24,16 @@ export function ModeTabs({ mode, setMode, dailyDone, onFriends, gameId }) {
   const board = gameId && leaderboardsEnabled() && boardOf(gameId);
   return (
     <Tabs items={[
-      { key: "daily", label: "Daily", active: mode === "daily", onClick: () => setMode("daily"), suffix: dailyDone ? " ✓" : "" },
+      /* The only tab that keeps its word — see the note on `Tabs`. */
+      { key: "daily", label: "Daily", icon: <CalendarIcon />, showLabel: true,
+        active: mode === "daily", onClick: () => setMode("daily"), suffix: dailyDone ? "✓" : "" },
       /* The mode is still called "practice" in code; only the label changed. */
-      { key: "practice", label: "Unlimited", active: mode === "practice", onClick: () => setMode("practice") },
-      onFriends && { key: "friends", label: "Play with Friend", active: mode === "friends", onClick: onFriends },
-      board && { key: "board", label: CONTENT.leaderboard.tab, active: mode === "board", onClick: () => setMode("board") },
+      { key: "practice", label: "Unlimited", icon: <InfinityIcon />,
+        active: mode === "practice", onClick: () => setMode("practice") },
+      onFriends && { key: "friends", label: "Play with Friend", icon: <TwoPeopleIcon />,
+        active: mode === "friends", onClick: onFriends },
+      board && { key: "board", label: CONTENT.leaderboard.tab, icon: <TrophyIcon />,
+        active: mode === "board", onClick: () => setMode("board") },
     ]} />
   );
 }

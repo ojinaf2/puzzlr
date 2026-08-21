@@ -146,7 +146,7 @@ export default function Hangman({ mode: routeMode, navigate }) {
   /* ------------------------------- menu ------------------------------- */
   if (screen === "menu") return (
     <Centered>
-      <LeaderboardTabs gameId={DAILY_ID} view={view} setView={setView} />
+      <LeaderboardTabs gameId={DAILY_ID} view={view} setView={setView} playPeople={3} />
       {view === "board" ? (
         <LeaderboardPanel gameId={DAILY_ID} localBest={() => record.best || null} />
       ) : <>

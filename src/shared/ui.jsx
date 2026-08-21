@@ -96,7 +96,17 @@ export function SoundToggle() {
    two separate controls. Scrolling sideways keeps it one object; the bar
    itself is hidden because a scrollbar under four pills looks like a mistake.
 
-   `items` are { key, label, active, onClick, suffix }. */
+   MOST TABS ARE NOW AN ICON RATHER THAN A WORD, which is only safe because
+   the word is still there for anyone who cannot see the glyph: `label` goes
+   on `aria-label` and on `title`, so a screen reader announces it and a
+   hovering mouse gets a tooltip. An icon with no accessible name is a button
+   that says nothing, and that is a bug rather than a style.
+
+   Daily keeps its word beside the icon. It is the one tab whose glyph is not
+   self-evident — a calendar could mean any number of things — and it is the
+   default tab, so it is worth spelling out.
+
+   `items` are { key, label, icon, showLabel, active, onClick, suffix }. */
 export function Tabs({ items, style = {} }) {
   return (
     <div className="tabstrip" role="tablist" style={{
@@ -104,16 +114,23 @@ export function Tabs({ items, style = {} }) {
       borderRadius: 9, padding: 4, marginBottom: 14,
       maxWidth: "100%", overflowX: "auto", ...style,
     }}>
-      {items.filter(Boolean).map(({ key, label, active, onClick, suffix }) => (
+      {items.filter(Boolean).map(({ key, label, icon, showLabel, active, onClick, suffix }) => (
         <button key={key} onClick={active ? undefined : onClick} role="tab" aria-selected={!!active}
+          aria-label={label} title={label}
           style={{
             background: active ? C.accent : "transparent", color: active ? "#fff" : C.dim,
-            border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
+            border: "none", borderRadius: 7, fontSize: "0.84375rem",
+            /* An icon-only tab is square-ish; one carrying a word needs the
+               wider padding the strip has always had. */
+            padding: icon && !showLabel ? "7px 15px" : "7px 16px",
             fontWeight: 700, fontFamily: "inherit", cursor: active ? "default" : "pointer",
             flexShrink: 0, whiteSpace: "nowrap",
+            display: "flex", alignItems: "center", gap: 7, minHeight: 32,
             transition: `background .15s ${EASE}, color .15s ${EASE}`,
           }}>
-          {label}{!active && suffix ? suffix : ""}
+          {icon}
+          {(showLabel || !icon) && <span>{label}</span>}
+          {!active && suffix ? <span aria-hidden>{suffix}</span> : null}
         </button>
       ))}
     </div>

@@ -65,7 +65,7 @@ function LocalWavelength({ navigate, onOnline }) {
 
   if (phase === "intro") return (
     <Centered>
-      <PlayTabs localLabel="Same device" onOnline={onOnline} />
+      <PlayTabs localLabel="Same device" localPeople={2} onOnline={onOnline} />
       <h2 style={hStyle}>Wavelength</h2>
       <p style={pStyle}>Players split into teams to read each other's minds by guessing where a hidden target lies on a physical or digital spectrum based on a single conceptual clue.</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>

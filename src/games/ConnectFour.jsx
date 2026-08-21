@@ -169,7 +169,7 @@ function LocalConnectFour({ navigate, onOnline }) {
   return (
     <Centered>
       <style>{c4Style}</style>
-      <PlayTabs localLabel="Same device" onOnline={onOnline} />
+      <PlayTabs localLabel="Same device" localPeople={2} onOnline={onOnline} />
       <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10, alignItems: "center" }}>
         <span style={{ color: RED, fontWeight: 800 }}>Red &nbsp;{wins.R}</span>
         <span style={{ color: C.dim }}>vs</span>

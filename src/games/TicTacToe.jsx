@@ -61,7 +61,7 @@ function LocalTicTacToe({ navigate, onOnline }) {
 
   return (
     <Centered>
-      <PlayTabs localLabel="Same device" onOnline={onOnline} />
+      <PlayTabs localLabel="Same device" localPeople={2} onOnline={onOnline} />
       <div style={{ display: "flex", gap: 20, fontSize: "0.875rem", marginBottom: 10 }}>
         <span style={{ color: C.accent, fontWeight: 800 }}>X &nbsp;{wins.X}</span>
         <span style={{ color: C.dim }}>vs</span>

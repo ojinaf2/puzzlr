@@ -3,6 +3,7 @@ import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, 
 import { Btn, SoundToggle } from './shared/ui.jsx';
 import { NameButton } from './shared/leaderboardUi.jsx';
 import { leaderboardsEnabled } from './shared/leaderboard.js';
+import { PeopleIcon, peopleCount, TrophyIcon } from './shared/icons.jsx';
 import { useRoute, buildPath, BOARDS_ROUTE } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
 import { CONTENT, fill } from './content.js';
@@ -91,8 +92,15 @@ function GameCard({ game, onClick }) {
         <div style={{ fontSize: "1.1875rem", fontWeight: 800, letterSpacing: "-.01em" }}>{game.name}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2, gap: 8 }}>
-        <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.75rem", color: C.dim, background: PILL, padding: "3px 10px", borderRadius: 20, boxShadow: GLOSS_SOFT }}>{game.players}</span>
+        <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {/* How many can play, as a silhouette rather than "1-6 players".
+              The editable string is still what decides which one and is still
+              what a screen reader and a hovering mouse are told — it became
+              the label instead of being thrown away. */}
+          <span title={game.players} aria-label={game.players} role="img"
+            style={{ display: "inline-flex", alignItems: "center", color: C.dim, background: PILL, padding: "4px 10px", borderRadius: 20, boxShadow: GLOSS_SOFT }}>
+            <PeopleIcon count={peopleCount(game.players)} size={16} />
+          </span>
           {game.daily && (
             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#fff", background: grad(game.accent), padding: "3px 10px", borderRadius: 20, boxShadow: `${GLOSS}, ${SHADOW.sm}` }}>Daily</span>
           )}
@@ -193,12 +201,7 @@ function BoardsLink({ onOpen }) {
         fontSize: "0.875rem", fontWeight: 700, fontFamily: "inherit", color: C.text,
         background: paleGrad(C.panel2), boxShadow: `${GLOSS_SOFT}, ${SHADOW.sm}`,
       }}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.gold}
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
-        <path d="M7 5.5H4.6v1.2A3.4 3.4 0 0 0 8 10.1M17 5.5h2.4v1.2A3.4 3.4 0 0 1 16 10.1" />
-        <path d="M12 14v3.2M8.6 20h6.8l-.7-2.8H9.3L8.6 20Z" />
-      </svg>
+      <span style={{ color: C.gold, display: "inline-flex" }}><TrophyIcon /></span>
       {CONTENT.leaderboard.hubLink}
       <span aria-hidden style={{ transition: `transform .28s ${EASE}`, transform: hover ? "translateX(3px)" : "none" }}>→</span>
     </a>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, SHADOW, GLOSS_SOFT, PILL, paleGrad, EASE } from './theme.js';
 import { Btn, Tabs, Centered, hStyle, pStyle } from './ui.jsx';
+import { PeopleIcon, TrophyIcon, GlobeIcon, LockIcon } from './icons.jsx';
 import { boardOf } from '../data/leaderboards.js';
 import { CONTENT } from '../content.js';
 import { roomServerUrl } from './useRoom.js';
@@ -24,7 +25,10 @@ const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform:
    Renders nothing at all when no room server is configured. A lone tab
    reading "Solo" explains nothing, and an online tab that leads nowhere is
    worse than no tab. */
-export function PlayTabs({ localLabel = "Solo", onlineLabel = "Play online", onOnline, gameId, view = "local", setView }) {
+/* `localPeople` is how many are round the one device: 1 for Solo, 2 for the
+   pass-the-phone games. It only picks the silhouette — the wording still
+   comes from `localLabel`, which is what the tooltip and screen readers get. */
+export function PlayTabs({ localLabel = "Solo", localPeople = 1, onlineLabel = "Play online", onOnline, gameId, view = "local", setView }) {
   if (!roomServerUrl()) return null;
   /* The leaderboard tab needs both a board to show and somewhere to put the
      view state. A caller that has not been given one keeps the old two-tab
@@ -32,28 +36,19 @@ export function PlayTabs({ localLabel = "Solo", onlineLabel = "Play online", onO
   const board = gameId && setView && boardOf(gameId);
   return (
     <Tabs items={[
-      { key: "local", label: localLabel, active: view === "local", onClick: () => setView?.("local") },
-      { key: "online", label: onlineLabel, active: false, onClick: onOnline },
-      board && { key: "board", label: CONTENT.leaderboard.tab, active: view === "board", onClick: () => setView("board") },
+      { key: "local", label: localLabel, icon: <PeopleIcon count={localPeople} />,
+        active: view === "local", onClick: () => setView?.("local") },
+      { key: "online", label: onlineLabel, icon: <GlobeIcon />, active: false, onClick: onOnline },
+      board && { key: "board", label: CONTENT.leaderboard.tab, icon: <TrophyIcon />,
+        active: view === "board", onClick: () => setView("board") },
     ]} />
   );
 }
 
-export const GlobeIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" />
-  </svg>
-);
-
-export const LockIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="4" y="10.5" width="16" height="10.5" rx="2.5" />
-    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
-  </svg>
-);
+/* Both moved to shared/icons.jsx when the tabs went over to glyphs, and
+   re-exported here because this is where the rest of the site imports them
+   from. Same drawings, one home. */
+export { GlobeIcon, LockIcon };
 
 /* `visibility` and `onVisibility` are optional: passed only for the host, who
    is the one allowed to change it. Everyone else just sees the code. */

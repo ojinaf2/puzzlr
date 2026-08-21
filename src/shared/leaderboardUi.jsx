@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, grad, paleGrad, EASE } from './theme.js';
 import { Btn, Tabs } from './ui.jsx';
+import { PeopleIcon, TrophyIcon } from './icons.jsx';
 import { myScoreId, savedName, saveName, useSavedName } from './identity.js';
 import { boardOf, formatScore } from '../data/leaderboards.js';
 import { useBoard, submitScore, renameEverywhere, leaderboardsEnabled, rankOf } from './leaderboard.js';
@@ -148,12 +149,14 @@ export function NameButton() {
 
    Renders nothing when there is no leaderboard to reach, which keeps a lone
    "Play" tab explaining nothing off the screen. */
-export function LeaderboardTabs({ gameId, view, setView, playLabel = "Play" }) {
+export function LeaderboardTabs({ gameId, view, setView, playLabel = "Play", playPeople = 1 }) {
   if (!leaderboardsEnabled() || !boardOf(gameId)) return null;
   return (
     <Tabs items={[
-      { key: "play", label: playLabel, active: view === "play", onClick: () => setView("play") },
-      { key: "board", label: CONTENT.leaderboard.tab, active: view === "board", onClick: () => setView("board") },
+      { key: "play", label: playLabel, icon: <PeopleIcon count={playPeople} />,
+        active: view === "play", onClick: () => setView("play") },
+      { key: "board", label: CONTENT.leaderboard.tab, icon: <TrophyIcon />,
+        active: view === "board", onClick: () => setView("board") },
     ]} />
   );
 }
