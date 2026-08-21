@@ -63,6 +63,44 @@ saveBoard('g', 30, ['aaaaa']);
 eq('board kept same day', todaysRecord('g', 30).board, ['aaaaa']);
 eq('board cleared next day', todaysRecord('g', 31).board, null);
 
+/* A streak has to survive being played, not just being scored.
+
+   Every guess calls saveBoard, which moves the stored day to today before the
+   puzzle is finished. The tests above went straight from finishDaily to
+   finishDaily and so never saw it — while every real player types a guess
+   first, which used to reset their streak to 1 every single day. */
+reset();
+finishDaily('g', 40, true, '3');
+saveBoard('g', 41, ['aaaaa']);                 // a guess typed the next day
+finishDaily('g', 41, true, '4');
+eq('a guess before finishing does not break the streak', loadDaily('g').streak, 2);
+
+saveBoard('g', 42, ['bbbbb']);
+finishDaily('g', 42, true, '2');
+eq('and keeps building', loadDaily('g').streak, 3);
+
+// A gap is still a gap, however the days in between were spent.
+saveBoard('g', 45, ['ccccc']);
+finishDaily('g', 45, true, '2');
+eq('a skipped day still restarts it', loadDaily('g').streak, 1);
+eq('best survives the gap', loadDaily('g').best, 3);
+
+// A loss still ends it, and does not quietly count as the last win.
+saveBoard('g', 46, ['ddddd']);
+finishDaily('g', 46, false, 'X');
+eq('a loss zeroes it', loadDaily('g').streak, 0);
+saveBoard('g', 47, ['eeeee']);
+finishDaily('g', 47, true, '2');
+eq('the day after a loss starts from one', loadDaily('g').streak, 1);
+
+/* A record written by the build before `lastWon` existed still has to read
+   correctly for a player who has not started today's puzzle yet. */
+reset();
+store.set('puzzlr:daily:g', JSON.stringify(
+  { day: 50, board: null, done: { won: true, bucket: '3' }, played: 4, won: 4, streak: 4, best: 4, dist: {} }));
+finishDaily('g', 51, true, '3');
+eq('an older record still continues its streak', loadDaily('g').streak, 5);
+
 // a wiped localStorage must not throw
 globalThis.localStorage = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
 eq('survives blocked storage', loadDaily('g').streak, 0);

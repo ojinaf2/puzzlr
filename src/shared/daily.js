@@ -82,7 +82,20 @@ export const dailyPick = (list, salt, day = todayNumber()) => {
    of the site newer than the one that wrote it. */
 
 const KEY = (gameId) => `puzzlr:daily:${gameId}`;
-const EMPTY = { day: 0, board: null, done: null, played: 0, won: 0, streak: 0, best: 0, dist: {} };
+const EMPTY = { day: 0, board: null, done: null, played: 0, won: 0, streak: 0, best: 0, lastWon: 0, dist: {} };
+
+/* The day of the most recent win, which is not something `day` can answer.
+
+   `day` is the day the *stored board* belongs to, and `saveBoard` moves it to
+   today the moment the first guess is typed — clearing `done` with it. So by
+   the time a puzzle is finished, "did they win yesterday?" has already been
+   overwritten by the act of playing today. Reading continuity off `day` meant
+   every streak reset to 1 for anyone who typed a guess, which is everyone.
+
+   The fallback reads the old shape, for a record written before this field
+   existed: back then the answer really was `day` plus `done`, and that is
+   still correct for anyone who has not started today's puzzle yet. */
+const lastWonDay = (prev) => prev.lastWon || (prev.done?.won ? prev.day : 0);
 
 export const loadDaily = (gameId) => {
   try {
@@ -111,12 +124,13 @@ export const saveBoard = (gameId, day, board) => {
 export const finishDaily = (gameId, day, won, bucket) => {
   const prev = loadDaily(gameId);
   if (prev.day === day && prev.done) return prev;
-  const continues = prev.day === day - 1 && prev.done?.won;
+  const continues = lastWonDay(prev) === day - 1;
   const streak = won ? (continues ? prev.streak : 0) + 1 : 0;
   return write(gameId, {
     ...prev,
     day,
     done: { won, bucket },
+    lastWon: won ? day : lastWonDay(prev),
     played: prev.played + 1,
     won: prev.won + (won ? 1 : 0),
     streak,
