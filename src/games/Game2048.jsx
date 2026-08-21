@@ -3,6 +3,8 @@ import { C, SHADOW, GLOSS, GLOSS_SOFT, PILL, paleGrad, EASE, SPRING } from '../s
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { sfx } from '../shared/sound.js';
+import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit } from '../shared/leaderboard.js';
 import { SIZES, newGame, move, isOver } from './game2048Rules.js';
 
 /* ============================= 2048 =============================
@@ -262,6 +264,8 @@ export default function Game2048() {
      changes it. Two useStates would let a fast second press land between them. */
   const [{ game, prev }, setState] = useState(() => ({ game: newGame(4), prev: null }));
   const [best, setBest] = useState(() => readBest(4));
+  const [view, setView] = useState("play");
+  const board = useScoreSubmit("2048");
   const touch = useRef(null);
 
   /* Glass tiles were briefly a setting. Anyone who switched it on still has
@@ -287,6 +291,15 @@ export default function Game2048() {
 
   useEffect(() => { if (showWin) sfx.win(); }, [showWin]);
   useEffect(() => { if (over) sfx.lose(); }, [over]);
+
+  /* One board per size, because a 5x5 score is not comparable to a 4x4 one —
+     the same reasoning that already splits the stored best. What is posted is
+     the stored best rather than this run, so a submission lost to a bad
+     connection is resent by the next finished game. */
+  useEffect(() => {
+    if (!over) return;
+    board.submit(String(size), Math.max(best, game.score));
+  }, [over]);      // deliberately once, on the transition into "over"
 
   const start = useCallback((n) => {
     setSize(n);
@@ -336,6 +349,9 @@ export default function Game2048() {
   }, [game.score, best, size]);
 
   useEffect(() => {
+    // Nothing to drive while the leaderboard is on screen, and an arrow key
+    // there would quietly play a move behind it.
+    if (view !== "play") return undefined;
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -346,7 +362,7 @@ export default function Game2048() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doMove]);
+  }, [doMove, view]);
 
   const onTouchStart = (e) => {
     const t = e.touches[0];
@@ -370,9 +386,17 @@ export default function Game2048() {
   const settleMs = Math.max(SLIDE_BASE, ...tiles.map((t) => slideMs(t.dist)));
   const intro = CONTENT.intros?.game2048;
 
+  if (view === "board") return (
+    <Centered>
+      <LeaderboardTabs gameId="2048" view={view} setView={setView} />
+      <LeaderboardPanel gameId="2048" localBest={(key) => readBest(Number(key))} />
+    </Centered>
+  );
+
   return (
     <Centered>
       <style>{styleBlock}</style>
+      <LeaderboardTabs gameId="2048" view={view} setView={setView} />
 
       {/* ----------------------------------------------------------- top bar */}
       <div style={{
@@ -517,6 +541,8 @@ export default function Game2048() {
           {intro}
         </p>
       )}
+
+      <NamePrompt open={board.needsName} metric="score" onClose={board.dismiss} />
     </Centered>
   );
 }

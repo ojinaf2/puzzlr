@@ -29,6 +29,7 @@ const mf = new Miniflare({
   durableObjects: {
     ROOMS: { className: 'Room', useSQLite: true },
     DIRECTORY: { className: 'Directory', useSQLite: true },
+    LEADERBOARDS: { className: 'Leaderboard', useSQLite: true },
   },
   compatibilityDate: '2025-06-01',
 });
@@ -440,6 +441,53 @@ console.log('\n— tetris rejects nonsense from a client —');
   check('and the room is still playing', good?.room.status === 'playing', good?.room.status);
 
   ana.close(); ben.close();
+}
+
+/* The leaderboard over real HTTP. The rules are covered on their own in
+   leaderboard.test.mjs; what is worth checking here is the wiring — that the
+   routes resolve, that the binding is reachable, and that a score posted by
+   one visitor is there for the next one to read. */
+{
+  console.log('\n— the leaderboard, over HTTP —');
+  const post = (gameId, body) => mf.dispatchFetch(`http://x/leaderboard/${gameId}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const read = async (gameId, board) => {
+    const res = await mf.dispatchFetch(`http://x/leaderboard/${gameId}?board=${board}`);
+    return { status: res.status, entries: (await res.json()).entries };
+  };
+
+  const id = 's-11111111-2222-3333-4444-555555555555';
+  const posted = await post('tetris', { board: 'solo', id, name: 'Ana', value: 31000 });
+  check('a score posts', posted.status === 200);
+
+  const back = await read('tetris', 'solo');
+  check('and is there for the next visitor', back.entries[0]?.value === 31000);
+  check('with the name it was posted under', back.entries[0]?.name === 'Ana');
+
+  const junk = await post('tetris', { board: 'solo', id, name: 'Ana', value: 9e12 });
+  check('an impossible score is refused', junk.status === 400);
+  check('and the board is unchanged', (await read('tetris', 'solo')).entries.length === 1);
+
+  const snake = await mf.dispatchFetch('http://x/leaderboard/snake?board=solo');
+  check('a game with no board 404s rather than inventing one', snake.status === 404);
+
+  /* Separate objects per game, which is the whole point of keying them by id
+     — a busy board must not be able to slow a quiet one down. */
+  await post('2048', { board: '4', id, name: 'Ana', value: 9000 });
+  check('each game keeps its own object', (await read('2048', '4')).entries.length === 1);
+  check('and tetris is untouched by it', (await read('tetris', 'solo')).entries[0].value === 31000);
+
+  const renamed = await mf.dispatchFetch(`http://x/leaderboard/2048/rename`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id, name: 'Ana B' }),
+  });
+  check('a rename routes through', renamed.status === 200);
+  check('and lands on the board', (await read('2048', '4')).entries[0].name === 'Ana B');
+
+  const preflight = await mf.dispatchFetch('http://x/leaderboard/tetris', { method: 'OPTIONS' });
+  check('the browser preflight is allowed to POST',
+    preflight.headers.get('access-control-allow-methods')?.includes('POST'));
 }
 
 await mf.dispose();

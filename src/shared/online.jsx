@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { C, SHADOW, GLOSS_SOFT, PILL, paleGrad, EASE } from './theme.js';
-import { Btn, Centered, hStyle, pStyle } from './ui.jsx';
-import { saveName, savedName, roomServerUrl } from './useRoom.js';
+import { Btn, Tabs, Centered, hStyle, pStyle } from './ui.jsx';
+import { boardOf } from '../data/leaderboards.js';
+import { CONTENT } from '../content.js';
+import { roomServerUrl } from './useRoom.js';
+import { saveName, savedName } from './identity.js';
 import { listRooms, joinRoom, setIntent, cleanCode, CODE_RE } from './rooms.js';
 import { makeRoomCode } from './router.js';
 
@@ -21,27 +24,18 @@ const labelStyle = { fontSize: "0.75rem", letterSpacing: ".18em", textTransform:
    Renders nothing at all when no room server is configured. A lone tab
    reading "Solo" explains nothing, and an online tab that leads nowhere is
    worse than no tab. */
-export function PlayTabs({ localLabel = "Solo", onlineLabel = "Play online", onOnline }) {
+export function PlayTabs({ localLabel = "Solo", onlineLabel = "Play online", onOnline, gameId, view = "local", setView }) {
   if (!roomServerUrl()) return null;
-  const tab = (label, active, onClick) => (
-    <button onClick={onClick} disabled={active}
-      style={{
-        background: active ? C.accent : "transparent", color: active ? "#fff" : C.dim,
-        border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
-        fontWeight: 700, fontFamily: "inherit", cursor: active ? "default" : "pointer",
-        transition: `background .15s ${EASE}, color .15s ${EASE}`,
-      }}>
-      {label}
-    </button>
-  );
+  /* The leaderboard tab needs both a board to show and somewhere to put the
+     view state. A caller that has not been given one keeps the old two-tab
+     strip rather than a tab that cannot switch to anything. */
+  const board = gameId && setView && boardOf(gameId);
   return (
-    <div style={{
-      display: "flex", gap: 4, background: C.panel, border: `1px solid ${C.line}`,
-      borderRadius: 9, padding: 4, marginBottom: 14,
-    }}>
-      {tab(localLabel, true)}
-      {tab(onlineLabel, false, onOnline)}
-    </div>
+    <Tabs items={[
+      { key: "local", label: localLabel, active: view === "local", onClick: () => setView?.("local") },
+      { key: "online", label: onlineLabel, active: false, onClick: onOnline },
+      board && { key: "board", label: CONTENT.leaderboard.tab, active: view === "board", onClick: () => setView("board") },
+    ]} />
   );
 }
 

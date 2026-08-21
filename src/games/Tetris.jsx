@@ -3,7 +3,10 @@ import { C, SHADOW, GLOSS, GLOSS_SOFT, paleGrad, SPRING } from '../shared/theme.
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { CONTENT } from '../content.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
-import { useRoom, savedName } from '../shared/useRoom.js';
+import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit } from '../shared/leaderboard.js';
+import { useRoom } from '../shared/useRoom.js';
+import { savedName } from '../shared/identity.js';
 import { sfx, startMusic, stopMusic, pauseMusic, resumeMusic } from '../shared/sound.js';
 import {
   COLS, ROWS, COLOURS, PREVIEW, newGame, moveLeft, moveRight, moveBy, rotate,
@@ -729,8 +732,13 @@ function LocalTetris({ onOnline }) {
      back on a restart too, rather than only on first load. */
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [view, setView] = useState("local");
+  const board = useScoreSubmit("tetris");
+  /* Reading the leaderboard pauses the game. The tab is reachable mid-drop,
+     and a piece that keeps falling behind a table of other people's scores
+     would cost you the run you were about to post. */
   const { game, buzz, levelUp, rushUp, rush, settle, boardTouch, actions } =
-    useTetrisEngine({ seed, active: started, paused });
+    useTetrisEngine({ seed, active: started, paused: paused || view !== "local" });
 
   const newGame = useCallback(() => { setSeed(randomSeed()); setStarted(false); setPaused(false); }, []);
 
@@ -739,6 +747,15 @@ function LocalTetris({ onOnline }) {
   }, [game.score, best]);
 
   const over = game.status === "over";
+
+  /* Posted on the top-out rather than as the score climbs, so the board is not
+     being written to several times a second. What goes up is the stored best,
+     not this run — the resend is what repairs a submission a bad connection
+     lost, and the server keeps the higher of the two either way. */
+  useEffect(() => {
+    if (!over) return;
+    board.submit("solo", Math.max(best, game.score));
+  }, [over]);      // deliberately once, on the transition into "over"
   const canPause = started && !over;
 
   /* Escape is the pause key everywhere else, so it is the pause key here.
@@ -758,7 +775,7 @@ function LocalTetris({ onOnline }) {
 
   // Any key that would have played the game starts it instead.
   useEffect(() => {
-    if (started || over) return;
+    if (started || over || view !== "local") return;
     const go = (e) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const k = e.key.toLowerCase();
@@ -769,7 +786,7 @@ function LocalTetris({ onOnline }) {
     };
     window.addEventListener("keydown", go);
     return () => window.removeEventListener("keydown", go);
-  }, [started, over]);
+  }, [started, over, view]);
 
 
   return (
@@ -778,7 +795,9 @@ function LocalTetris({ onOnline }) {
       {/* Sound has its own switch in the site header now, next to the theme
           toggle — it applies to every game, so it belongs there rather than
           being repeated inside each one. */}
-      <PlayTabs localLabel="Solo" onOnline={onOnline} />
+      <PlayTabs localLabel="Solo" onOnline={onOnline} gameId="tetris" view={view} setView={setView} />
+
+      {view === "board" ? <LeaderboardPanel gameId="tetris" localBest={() => best || null} /> : <>
 
       <div className="tt-wrap">
         <div className="tt-side tt-left">
@@ -847,6 +866,9 @@ function LocalTetris({ onOnline }) {
       </div>
 
       <MusicCredit />
+      </>}
+
+      <NamePrompt open={board.needsName} metric="score" onClose={board.dismiss} />
     </Centered>
   );
 }

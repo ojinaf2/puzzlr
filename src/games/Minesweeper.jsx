@@ -6,6 +6,8 @@ import {
   minesLeft, bestKey, formatTime, levelOf, transpose,
 } from './minesweeperRules.js';
 import { sfx } from '../shared/sound.js';
+import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit } from '../shared/leaderboard.js';
 
 /* ============================= MINESWEEPER =============================
    Rules live in ./minesweeperRules.js so they can be tested without a browser.
@@ -59,6 +61,8 @@ export default function Minesweeper() {
   const [g, setG] = useState(() => newGame("easy"));
   const [seconds, setSeconds] = useState(0);
   const [best, setBest] = useState(null);
+  const [view, setView] = useState("play");
+  const board = useScoreSubmit("minesweeper");
   const press = useRef(null);
   const startedAt = useRef(0);
 
@@ -90,11 +94,19 @@ export default function Minesweeper() {
   useEffect(() => {
     if (g.status !== "won") return;
     const final = startedAt.current ? Math.floor((Date.now() - startedAt.current) / 1000) : seconds;
+    /* Read before the updater below runs — `setBest`'s function form is not
+       called until the next render, so this is still the previously stored
+       time, which is exactly what `final` needs comparing against. */
+    const stored = readBest(levelKey);
     setBest((prev) => {
       if (prev !== null && final >= prev) return prev;
       writeBest(levelKey, final);
       return final;
     });
+    // The board ranks the fastest clear on this level, so what goes up is the
+    // better of the two — resent on every win, which repairs a submission an
+    // earlier bad connection dropped.
+    board.submit(levelKey, stored === null ? final : Math.min(stored, final));
   }, [g.status]);      // deliberately once, on the transition into "won"
 
   const start = (key) => {
@@ -155,6 +167,10 @@ export default function Minesweeper() {
   /* --------------------------------- menu --------------------------------- */
   if (screen === "menu") return (
     <Centered>
+      <LeaderboardTabs gameId="minesweeper" view={view} setView={setView} />
+      {view === "board" ? (
+        <LeaderboardPanel gameId="minesweeper" localBest={(key) => readBest(key)} />
+      ) : <>
       <Anim />
       <h2 style={hStyle}>Minesweeper</h2>
       <p style={pStyle}>
@@ -186,6 +202,7 @@ export default function Minesweeper() {
           number that already has all its flags opens the squares around it.
         </p>
       </div>
+      </>}
     </Centered>
   );
 
@@ -294,6 +311,8 @@ export default function Minesweeper() {
         <Btn onClick={restart}>New board</Btn>
         <Btn variant="subtle" onClick={() => setScreen("menu")}>Change difficulty</Btn>
       </div>
+
+      <NamePrompt open={board.needsName} metric="time" onClose={board.dismiss} />
     </Centered>
   );
 }

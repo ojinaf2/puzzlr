@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { C } from './theme.js';
-import { Btn } from './ui.jsx';
+import { Btn, Tabs } from './ui.jsx';
 import { copyText, useCountdown } from './daily.js';
+import { boardOf } from '../data/leaderboards.js';
+import { leaderboardsEnabled } from './leaderboard.js';
+import { CONTENT } from '../content.js';
 
 /* ============================= DAILY UI =============================
    The two pieces of furniture a daily puzzle needs, shared by every game that
@@ -11,28 +14,21 @@ import { copyText, useCountdown } from './daily.js';
 /* `onFriends` is optional. When given, a third tab sits alongside the two
    modes rather than the online option living at the bottom of the page — it
    is a way to play, so it belongs with the other ways to play. It navigates
-   instead of setting mode, because online play is a route of its own. */
-export function ModeTabs({ mode, setMode, dailyDone, onFriends }) {
-  const tab = (key, label, onClick) => {
-    const on = mode === key;
-    return (
-      <button key={key} onClick={onClick ?? (() => setMode(key))}
-        style={{
-          background: on ? C.accent : "transparent", color: on ? "#fff" : C.dim,
-          border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
-          fontWeight: 700, fontFamily: "inherit", cursor: "pointer", transition: "background .15s, color .15s",
-        }}>
-        {label}{key === "daily" && dailyDone && !on ? " ✓" : ""}
-      </button>
-    );
-  };
+   instead of setting mode, because online play is a route of its own.
+
+   `gameId` is optional too, and adds the leaderboard as a fourth tab. Four
+   tabs do not fit across a phone, which is why the strip scrolls — see the
+   note on `Tabs`. */
+export function ModeTabs({ mode, setMode, dailyDone, onFriends, gameId }) {
+  const board = gameId && leaderboardsEnabled() && boardOf(gameId);
   return (
-    <div style={{ display: "flex", gap: 4, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: 4, marginBottom: 14 }}>
-      {tab("daily", "Daily")}
-      {/* The mode is still called "practice" in code; only the label changed. */}
-      {tab("practice", "Unlimited")}
-      {onFriends && tab("friends", "Play with Friend", onFriends)}
-    </div>
+    <Tabs items={[
+      { key: "daily", label: "Daily", active: mode === "daily", onClick: () => setMode("daily"), suffix: dailyDone ? " ✓" : "" },
+      /* The mode is still called "practice" in code; only the label changed. */
+      { key: "practice", label: "Unlimited", active: mode === "practice", onClick: () => setMode("practice") },
+      onFriends && { key: "friends", label: "Play with Friend", active: mode === "friends", onClick: onFriends },
+      board && { key: "board", label: CONTENT.leaderboard.tab, active: mode === "board", onClick: () => setMode("board") },
+    ]} />
   );
 }
 

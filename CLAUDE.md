@@ -34,10 +34,14 @@ src/
     rooms.js          browsing open rooms, and testing a code before joining
     daily.js          daily puzzle selection, streaks, sharing
     dailyUi.jsx       the Daily/Practice tabs and the end-of-puzzle stats panel
+    identity.js       the two ids and the site-wide display name
+    leaderboard.js    fetching and posting scores; the name prompt hook
+    leaderboardUi.jsx the ranked table, the name dialog, the header control
     utils.js          rand, shuffle
   content.js          ALL user-facing text; rewritten by the editor at /admin
   admin/AdminPanel.jsx  the dev-only site editor
-  data/               word lists, countries, spectra — shared with the server
+  data/               word lists, countries, spectra, leaderboard definitions
+                      — all shared with the server
   games/
     index.jsx         THE REGISTRY. Adding a game means one entry here.
     <Game>.jsx        one file per game
@@ -49,6 +53,7 @@ server/
   src/index.js        Worker, the Room Durable Object, and the Directory
                       object that lists rooms open to join
   src/games.js        the rules of every online game, one entry per game
+  src/leaderboard.js  the Leaderboard object: one per game, all its variants
   test/               node test suites, no framework
 ```
 
@@ -123,6 +128,58 @@ accounts to attach a history to, and clearing site data resets a streak.
 `test/daily.test.mjs` covers the bookkeeping, because the interesting cases
 span days and the UI cannot reach them without changing the clock.
 
+## Leaderboards
+
+Six games rank their players against everyone else: Wordle and Hangman by
+longest daily streak, Tetris and 2048 by highest score, Minesweeper by fastest
+clear, Flag Quiz by longest streak. Snake has none, deliberately.
+
+`src/data/leaderboards.js` is the single table of what can be ranked — which
+way is better, what bounds are plausible, how a value is formatted — and it is
+**imported by the browser and the Worker both**, the same way the word and
+country lists are. That matters more here than for a word list: the direction
+of a board is what stops a client claiming a "best" Minesweeper time of nine
+hours. One copy means the referee and the table it draws cannot disagree.
+
+A game with several variants gets several boards, with a row of chips to
+switch between them — a 9x9 time is not a 16x30 time, and a 4x4 2048 score is
+not a 6x6 one. A game with one variant shows no chips.
+
+### What they can and cannot promise
+
+**Scores are reported by the browser.** The server checks shape, bounds, and
+that submissions are not arriving faster than a person could earn them. It
+cannot tell a real 40,000-point Tetris game from a fabricated one, because the
+game was simulated in the browser and only the result was sent. This is the
+same trade the Tetris section above describes, leaned on harder. It is a wall
+of names, not a record book. Do not build anything on top of it that needs to
+be true, and do not add prizes.
+
+### Identity, without accounts
+
+There are two ids in `src/shared/identity.js`, and the split is deliberate.
+The **room id** is broadcast to everyone in a room, so anybody you have played
+against has seen it — fine for reclaiming a seat, wrong for owning a
+leaderboard row. The **score id** is generated separately and never sent to a
+room. The name is shared: one name for the site, changed from the header.
+
+So a browser holds one row per board however many days it plays, and beating
+yourself updates that row rather than adding another. Clearing site data loses
+the id and the row with it. There is no account to fall back on — the same
+deliberate cost daily streaks already pay.
+
+### Submitting is idempotent, and that is the error handling
+
+Games send their **stored best**, not the run that just finished, and the
+server keeps whichever end of the board is winning. A submission lost to a
+flaky connection is therefore not lost: the next finished game sends the same
+number again, and opening the Leaderboard tab sends it too. That is why
+nothing retries, queues or reports a failure — and why a resubmitted best is
+not rate limited, since it writes nothing.
+
+Adding it needed a wrangler migration (`v3`) for the `Leaderboard` object, and
+a `LEADERBOARDS` binding. Both deploy targets, as always.
+
 ## Word banks
 
 `src/data/words.js` (Wordle) is hand-maintained and already a **superset of the
@@ -196,8 +253,10 @@ board are reported by the client.
 
 So an edited Tetris client could inflate its score or decline to admit it
 topped out. It cannot deal itself easier pieces. That is the right trade for a
-game played with a friend over an invite link, and the wrong one for anything
-resembling a leaderboard — which is a reason not to add one.
+game played with a friend over an invite link.
+
+It is a weaker trade for the leaderboards, which were added anyway in August
+2026 with that understood — see below.
 
 ## Flags
 
@@ -218,7 +277,8 @@ npm run build:words                 # regenerate src/data/hangmanWords.js
 cd server
 npm install
 npx wrangler dev --port 8787 --show-interactive-dev-session false
-node test/rules.test.mjs            # also connect4, wordle, flagquiz, wavelength, room
+node test/rules.test.mjs            # also connect4, wordle, flagquiz, wavelength,
+                                    # tetris, leaderboard, room
 npx wrangler deploy                 # publish the room server
 ```
 
@@ -290,6 +350,17 @@ Every one of these has already cost an afternoon:
   moment an apple is eaten.
 - **No game count in any user-facing copy.** Games get added and a number baked
   into a title, description or shared link goes stale immediately.
+- **`daily.js` keeps `lastWon` as well as `day`.** They are not the same thing
+  and one cannot be derived from the other. `day` is the day the *stored
+  board* belongs to, and `saveBoard` moves it to today the moment a guess is
+  typed — so by the time a puzzle is finished, "did they win yesterday?" has
+  already been overwritten by the act of playing today. Reading continuity off
+  `day` meant every streak silently reset to 1 for anyone who typed a guess,
+  which is everyone. Fixed August 2026; `test/daily.test.mjs` now plays through
+  `saveBoard` rather than calling `finishDaily` twice in a row, which is what
+  hid it.
+- **Two ids in `identity.js` is not duplication.** The room id is public to
+  everyone in your room; the score id is not. See the leaderboard section.
 
 ## Deliberately not built
 
@@ -300,8 +371,13 @@ of these.
 Persistent stats used to be on this list. They are still off for ordinary
 play — every game's score resets on refresh — but daily puzzles keep a streak
 and a guess distribution in `localStorage`, because a daily challenge without a
-streak is not really one. That is the whole of the exception: no server, no
-account, no history beyond the current device.
+streak is not really one.
+
+Leaderboards used to be on it too, and were asked for in August 2026. They are
+the one thing here that stores something about a player on a server: a name, a
+number and a random id per board. Still no account, no login, no email, and
+nothing tying the rows to a person — clearing site data walks away from them.
+Anything more than that is still off the list; ask first.
 
 Note that ads would make the site commercial, which Vercel's free Hobby plan
 does not allow — that would mean $20/month, which is why it has been left

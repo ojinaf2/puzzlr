@@ -4,6 +4,8 @@ import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { DIFFICULTIES, pickWord, suggestSpelling } from '../data/hangmanWords.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { DailyPanel } from '../shared/dailyUi.jsx';
+import { LeaderboardTabs, LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= HANGMAN =============================
@@ -26,6 +28,11 @@ const DAILY_DIFFICULTY = "medium";
 export default function Hangman() {
   const [screen, setScreen] = useState("menu");   // menu | botSetup | localSetup | setWord | handoff | play | final
   const [mode, setMode] = useState(null);         // bot | local | daily
+  /* The menu's own tab strip. Hangman picks its mode with three buttons and a
+     setup screen behind each, which reads well as it is — so the strip sits
+     above that rather than trying to fold "play the bot" into a tab. */
+  const [view, setView] = useState("play");
+  const board = useScoreSubmit(DAILY_ID);
   const [difficulty, setDifficulty] = useState("easy");
   const [rounds, setRounds] = useState(5);
   const [players, setPlayers] = useState([{ id: 1, name: "Player 1" }, { id: 2, name: "Player 2" }]);
@@ -72,9 +79,14 @@ export default function Hangman() {
     if (!over || scoredRef.current) return;
     scoredRef.current = true;
     if (mode === "bot") { if (won) setBotWins((w) => w + 1); }
-    else if (mode === "daily") setRecord(finishDaily(DAILY_ID, day, won, won ? String(wrongLetters.length) : "X"));
+    else if (mode === "daily") {
+      const next = finishDaily(DAILY_ID, day, won, won ? String(wrongLetters.length) : "X");
+      setRecord(next);
+      // The longest streak ever reached, not today's — see the note in Wordle.
+      if (next.best > 0) board.submit("daily", next.best);
+    }
     else if (!won) setScores((s) => ({ ...s, [setter.id]: (s[setter.id] || 0) + 1 }));
-  }, [over, won, mode, setter, day, wrongLetters.length]);
+  }, [over, won, mode, setter, day, wrongLetters.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Keep today's half-guessed board, so a refresh does not cost the attempt. */
   useEffect(() => {
@@ -134,18 +146,23 @@ export default function Hangman() {
   /* ------------------------------- menu ------------------------------- */
   if (screen === "menu") return (
     <Centered>
-      <Anim />
-      <h2 style={hStyle}>Hangman</h2>
-      <p style={pStyle}>Guess the word one letter at a time. Seven wrong guesses and the cowboy is done for.</p>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-        <Btn onClick={startDaily}>Daily word{record.done ? " ✓" : ""}</Btn>
-        <Btn variant="ghost" onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Play the bot</Btn>
-        <Btn variant="ghost" onClick={() => { setMode("local"); setScreen("localSetup"); }}>Pass and play</Btn>
-      </div>
-      <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, marginBottom: 0 }}>
-        Everyone gets the same daily word — puzzle #{day}.
-        {record.streak > 0 && ` You are ${record.streak} day${record.streak === 1 ? "" : "s"} into a streak.`}
-      </p>
+      <LeaderboardTabs gameId={DAILY_ID} view={view} setView={setView} />
+      {view === "board" ? (
+        <LeaderboardPanel gameId={DAILY_ID} localBest={() => record.best || null} />
+      ) : <>
+        <Anim />
+        <h2 style={hStyle}>Hangman</h2>
+        <p style={pStyle}>Guess the word one letter at a time. Seven wrong guesses and the cowboy is done for.</p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <Btn onClick={startDaily}>Daily word{record.done ? " ✓" : ""}</Btn>
+          <Btn variant="ghost" onClick={() => { setMode("bot"); setScreen("botSetup"); }}>Play the bot</Btn>
+          <Btn variant="ghost" onClick={() => { setMode("local"); setScreen("localSetup"); }}>Pass and play</Btn>
+        </div>
+        <p style={{ ...pStyle, fontSize: "0.8125rem", marginTop: 14, marginBottom: 0 }}>
+          Everyone gets the same daily word — puzzle #{day}.
+          {record.streak > 0 && ` You are ${record.streak} day${record.streak === 1 ? "" : "s"} into a streak.`}
+        </p>
+      </>}
     </Centered>
   );
 
@@ -373,6 +390,8 @@ export default function Hangman() {
           ))}
         </div>
       )}
+
+      <NamePrompt open={board.needsName} metric="streak" onClose={board.dismiss} />
     </Centered>
   );
 }

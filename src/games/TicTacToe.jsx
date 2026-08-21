@@ -3,7 +3,8 @@ import { C } from '../shared/theme.js';
 import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, OnlineEntry, PlayTabs } from '../shared/online.jsx';
-import { useRoom, savedName } from '../shared/useRoom.js';
+import { useRoom } from '../shared/useRoom.js';
+import { savedName } from '../shared/identity.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= TIC-TAC-TOE =============================

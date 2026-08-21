@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { C, SHADOW, GLOSS, GLOSS_SOFT, GLASS, GLOW, LOGO, PILL, grad, paleGrad, tint, shade, EASE, themeCss, typeCss, useTheme, toggleTheme, THEMES } from './shared/theme.js';
 import { Btn, SoundToggle } from './shared/ui.jsx';
+import { NameButton } from './shared/leaderboardUi.jsx';
 import { useRoute, buildPath } from './shared/router.js';
 import { GAMES } from './games/index.jsx';
 import { CONTENT, fill } from './content.js';
@@ -290,6 +291,12 @@ export default function App() {
         .social { transition: color .18s ${EASE}, background .18s ${EASE}; -webkit-tap-highlight-color: transparent; }
         .social:hover { color: ${C.accent} !important; background: var(--wash); }
         .social:active { background: var(--wash-strong); }
+        /* Four tabs do not fit across a phone, and a strip that wraps onto two
+           lines stops reading as one control. It scrolls sideways instead —
+           with the bar itself hidden, because a scrollbar under a row of pills
+           looks like a rendering fault rather than an affordance. */
+        .tabstrip { scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+        .tabstrip::-webkit-scrollbar { display: none; }
         .btn-flat { -webkit-tap-highlight-color: transparent; transition: background .18s ${EASE}, color .18s ${EASE}; }
         .btn-flat:hover { background: var(--wash); color: ${C.text}; }
         .btn-flat:active { background: var(--wash-strong); }
@@ -330,6 +337,10 @@ export default function App() {
           {game && <Btn variant="subtle" onClick={() => navigate(null)} style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
             <span aria-hidden>←</span><span className="hdr-word"> {CONTENT.hub.backToGames}</span>
           </Btn>}
+          {/* Your name is a property of the site, like the sound and the
+              theme, so it lives with them rather than inside whichever game
+              happened to ask for it first. */}
+          <NameButton />
           <SoundToggle />
           <ThemeToggle />
         </div>

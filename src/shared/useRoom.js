@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getIntent } from './rooms.js';
+import { myPlayerId } from './identity.js';
 
 /* ============================= ROOM CONNECTION =============================
    Talks to the Durable Object that runs a room. The server is the referee, so
@@ -19,20 +20,13 @@ export const roomServerUrl = () => {
   return null;   // production URL not set yet; the UI explains rather than hanging
 };
 
-const idKey = 'puzzlr:playerId';
-const nameKey = 'puzzlr:playerName';
-
-export const myPlayerId = () => {
-  let id = localStorage.getItem(idKey);
-  if (!id) {
-    id = 'p-' + crypto.randomUUID();
-    localStorage.setItem(idKey, id);
-  }
-  return id;
+/* The websocket URL is the configured one; the HTTP origin is the same host.
+   Shared with rooms.js and the leaderboard, which both talk to this Worker
+   over plain HTTP rather than a socket. */
+export const httpBase = () => {
+  const ws = roomServerUrl();
+  return ws ? ws.replace(/^ws/, 'http') : null;
 };
-
-export const savedName = () => localStorage.getItem(nameKey) || '';
-export const saveName = (n) => localStorage.setItem(nameKey, n);
 
 /* status: 'needs-name' | 'connecting' | 'open' | 'reconnecting' | 'offline' | 'unconfigured' */
 export function useRoom({ gameId, roomCode, name }) {

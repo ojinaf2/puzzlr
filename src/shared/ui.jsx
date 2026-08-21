@@ -85,6 +85,41 @@ export function SoundToggle() {
   );
 }
 
+/* ============================= TABS =============================
+   One strip, used by every game that has more than one way to play. It exists
+   because there are now three callers — the daily switch, the online switch
+   and the leaderboard — and three hand-rolled copies of the same row of pills
+   would drift apart the first time one of them was adjusted.
+
+   The scroll matters. Wordl Unlimited's strip is four tabs wide, which does
+   not fit across a small phone, and a strip that wraps to two lines reads as
+   two separate controls. Scrolling sideways keeps it one object; the bar
+   itself is hidden because a scrollbar under four pills looks like a mistake.
+
+   `items` are { key, label, active, onClick, suffix }. */
+export function Tabs({ items, style = {} }) {
+  return (
+    <div className="tabstrip" role="tablist" style={{
+      display: "flex", gap: 4, background: C.panel, border: `1px solid ${C.line}`,
+      borderRadius: 9, padding: 4, marginBottom: 14,
+      maxWidth: "100%", overflowX: "auto", ...style,
+    }}>
+      {items.filter(Boolean).map(({ key, label, active, onClick, suffix }) => (
+        <button key={key} onClick={active ? undefined : onClick} role="tab" aria-selected={!!active}
+          style={{
+            background: active ? C.accent : "transparent", color: active ? "#fff" : C.dim,
+            border: "none", borderRadius: 7, padding: "7px 18px", fontSize: "0.84375rem",
+            fontWeight: 700, fontFamily: "inherit", cursor: active ? "default" : "pointer",
+            flexShrink: 0, whiteSpace: "nowrap",
+            transition: `background .15s ${EASE}, color .15s ${EASE}`,
+          }}>
+          {label}{!active && suffix ? suffix : ""}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ============================= small layout helpers ============================= */
 export function Centered({ children }) { return <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>{children}</div>; }
 export const hStyle = { fontFamily: "var(--font-head)", fontSize: "1.75rem", fontWeight: 700, margin: "0 0 8px" };

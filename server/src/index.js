@@ -10,6 +10,12 @@
    Because of that eviction, room state lives in storage rather than on `this`. */
 
 import { GAMES } from './games.js';
+import { boardOf } from '../../src/data/leaderboards.js';
+
+/* Wrangler binds a Durable Object by finding its class exported from the
+   entry module, so the leaderboard is re-exported here even though nothing in
+   this file constructs one. */
+export { Leaderboard } from './leaderboard.js';
 
 const MAX_IDLE_MS = 30 * 60 * 1000;   // rooms are forgotten after half an hour of silence
 const GRACE_MS = 90 * 1000;           // a dropped player keeps their seat this long
@@ -18,7 +24,7 @@ const MAX_LISTED = 60;                   // a browse list longer than this helps
 
 const CORS = {
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET,OPTIONS',
+  'access-control-allow-methods': 'GET,POST,OPTIONS',
   'access-control-allow-headers': 'content-type',
 };
 
@@ -406,6 +412,33 @@ export default {
       const stub = env.DIRECTORY.get(env.DIRECTORY.idFromName('v1'));
       const gameId = url.searchParams.get('gameId') ?? '';
       return stub.fetch(`https://directory/list?gameId=${encodeURIComponent(gameId)}`);
+    }
+
+    /* The leaderboards. Plain HTTP for the same reason the browse list is:
+       reading a table is not joining anything, and a websocket per glance
+       would be a lot of machinery for a page that changes once a day.
+
+       One object per game holds every variant of that game's board, so
+       switching between Easy and Hard is one object's problem rather than
+       three objects' — and a game with a busy board cannot slow down a quiet
+       one. Unknown game ids are rejected here rather than being allowed to
+       conjure an empty object per typo. */
+    const lb = url.pathname.match(/^\/leaderboard\/([A-Za-z0-9_-]{1,32})(\/rename)?$/);
+    if (lb) {
+      const gameId = lb[1];
+      if (!boardOf(gameId)) return json({ error: 'no such leaderboard' }, 404);
+      const stub = env.LEADERBOARDS.get(env.LEADERBOARDS.idFromName(`lb:${gameId}`));
+      const query = `gameId=${encodeURIComponent(gameId)}`;
+
+      if (lb[2]) {
+        if (request.method !== 'POST') return json({ error: 'not found' }, 404);
+        return stub.fetch(`https://leaderboard/rename?${query}`, { method: 'POST', body: await request.text() });
+      }
+      if (request.method === 'POST') {
+        return stub.fetch(`https://leaderboard/submit?${query}`, { method: 'POST', body: await request.text() });
+      }
+      const board = url.searchParams.get('board') ?? '';
+      return stub.fetch(`https://leaderboard/list?${query}&board=${encodeURIComponent(board)}`);
     }
 
     const match = url.pathname.match(/^\/room\/([A-Z0-9]{6})$/);

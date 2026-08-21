@@ -1,4 +1,5 @@
-import { roomServerUrl, myPlayerId } from './useRoom.js';
+import { roomServerUrl, httpBase } from './useRoom.js';
+import { myPlayerId } from './identity.js';
 
 /* ============================= FINDING A ROOM =============================
 
@@ -9,12 +10,6 @@ import { roomServerUrl, myPlayerId } from './useRoom.js';
    A player reading the list has not joined anything yet, and opening a room
    socket to ask "what rooms exist?" would create rooms as a side effect of
    asking about them.                                                       */
-
-// The websocket URL is the configured one; the HTTP origin is the same host.
-const httpBase = () => {
-  const ws = roomServerUrl();
-  return ws ? ws.replace(/^ws/, 'http') : null;
-};
 
 export async function listRooms(gameId, { signal } = {}) {
   const base = httpBase();

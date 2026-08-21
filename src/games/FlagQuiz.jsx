@@ -5,7 +5,10 @@ import { Btn, TileBtn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { COUNTRIES } from '../data/countries.js';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, InviteLink, OnlineEntry, PlayTabs } from '../shared/online.jsx';
-import { useRoom, savedName } from '../shared/useRoom.js';
+import { useRoom } from '../shared/useRoom.js';
+import { savedName } from '../shared/identity.js';
+import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit, submitScore } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= FLAG QUIZ ============================= */
@@ -95,6 +98,30 @@ export default function FlagQuiz({ roomCode, mode, navigate }) {
   return <LocalFlagQuiz navigate={navigate} onOnline={() => navigate('flags', 'online')} />;
 }
 
+/* ------------------------------------------------------- the best streak
+   The other games already kept a personal best; this one never did, because
+   there was nothing to compare it against. There is now.
+
+   One record per mode and difficulty, because typing a country from a flag
+   with no options is not the same game as picking one of four.
+
+   Note that the quiz never ends — so the record is written as the streak
+   grows rather than at the end of a round, and posted when the streak
+   breaks. A streak that never breaks is posted when you leave, and by the
+   Leaderboard tab whenever it is opened. */
+const variantKey = (mode, difficulty) => `${mode}-${difficulty}`;
+const bestKey = (variant) => `puzzlr:flags:best:${variant}`;
+
+const readBest = (variant) => {
+  try {
+    const v = Number(localStorage.getItem(bestKey(variant)));
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  } catch { return 0; }
+};
+const writeBest = (variant, streak) => {
+  try { localStorage.setItem(bestKey(variant), String(streak)); } catch { /* private mode */ }
+};
+
 function LocalFlagQuiz({ navigate, onOnline }) {
   const [mode, setMode] = useState(null); // "flag2country" | "country2flag"
   const [difficulty, setDifficulty] = useState("easy"); // "easy" | "hard"
@@ -107,7 +134,22 @@ function LocalFlagQuiz({ navigate, onOnline }) {
   const [qnum, setQnum] = useState(0);
   const [listOpen, setListOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1); // index into suggestions, -1 = none
+  const [view, setView] = useState("local");
+  const board = useScoreSubmit("flags");
   const inputRef = useRef(null);
+
+  const variant = variantKey(mode, difficulty);
+
+  /* A streak still running when the player walks away is still a streak.
+     Held in a ref because the cleanup below runs once, on the way out, and a
+     value closed over at mount would be the one from the very first render. */
+  const liveRef = useRef(null);
+  liveRef.current = mode ? variant : null;
+  useEffect(() => () => {
+    const v = liveRef.current;
+    const best = v ? readBest(v) : 0;
+    if (best > 0) submitScore("flags", v, best);
+  }, []);
 
   const makeQ = useCallback((m, d) => {
     const answer = COUNTRIES[rand(COUNTRIES.length)];
@@ -127,8 +169,23 @@ function LocalFlagQuiz({ navigate, onOnline }) {
   /* Both ways of answering land here, so it is the one place the cue needs
      to go. */
   const score1 = (correct) => {
-    if (correct) { sfx.good(); setScore((s) => s + 1); setStreak((s) => s + 1); }
-    else { sfx.bad(); setStreak(0); }
+    if (correct) {
+      sfx.good();
+      setScore((s) => s + 1);
+      /* Computed from `streak` rather than inside the updater: React may run
+         an updater twice for the same answer, and writing a record from in
+         there would be a side effect running twice with it. A question can
+         only be answered once, so the value in scope is the right one. */
+      const next = streak + 1;
+      setStreak(next);
+      if (next > readBest(variant)) writeBest(variant, next);
+    } else {
+      sfx.bad();
+      setStreak(0);
+      // The streak just ended; the record it set is now worth posting.
+      const best = readBest(variant);
+      if (best > 0) board.submit(variant, best);
+    }
   };
 
   const start = (m) => { setMode(m); setScore(0); setStreak(0); setQnum(1); makeQ(m, difficulty); };
@@ -164,7 +221,10 @@ function LocalFlagQuiz({ navigate, onOnline }) {
 
   if (!mode) return (
     <Centered>
-      <PlayTabs localLabel="Solo" onOnline={onOnline} />
+      <PlayTabs localLabel="Solo" onOnline={onOnline} gameId="flags" view={view} setView={setView} />
+      {view === "board" ? (
+        <LeaderboardPanel gameId="flags" localBest={(key) => readBest(key) || null} />
+      ) : <>
       <h2 style={hStyle}>Flag Quiz</h2>
       <p style={{ ...pStyle, marginBottom: 10 }}>Two ways to play. Pick a difficulty, then a mode:</p>
 
@@ -184,6 +244,7 @@ function LocalFlagQuiz({ navigate, onOnline }) {
         <Btn onClick={() => start("flag2country")}>Flag → Country</Btn>
         <Btn onClick={() => start("country2flag")} variant="ghost">Country → Flag</Btn>
       </div>
+      </>}
     </Centered>
   );
 
@@ -265,6 +326,8 @@ function LocalFlagQuiz({ navigate, onOnline }) {
         <Btn onClick={next}>Next</Btn>
         <Btn onClick={() => setMode(null)} variant="subtle">Change mode</Btn>
       </div>}
+
+      <NamePrompt open={board.needsName} metric="streak" onClose={board.dismiss} />
     </Centered>
   );
 }

@@ -5,9 +5,12 @@ import { Btn, Centered, hStyle, pStyle } from '../shared/ui.jsx';
 import { validSet, answerList } from '../data/words.js';
 import { makeRoomCode } from '../shared/router.js';
 import { RoomStatus, lobbyView, InviteLink, OnlineEntry } from '../shared/online.jsx';
-import { useRoom, savedName, roomServerUrl } from '../shared/useRoom.js';
+import { useRoom, roomServerUrl } from '../shared/useRoom.js';
+import { savedName } from '../shared/identity.js';
 import { todayNumber, dailyPick, saveBoard, finishDaily, todaysRecord } from '../shared/daily.js';
 import { ModeTabs, DailyPanel } from '../shared/dailyUi.jsx';
+import { LeaderboardPanel, NamePrompt } from '../shared/leaderboardUi.jsx';
+import { useScoreSubmit } from '../shared/leaderboard.js';
 import { sfx } from '../shared/sound.js';
 
 /* ============================= WORDLE ============================= */
@@ -48,9 +51,22 @@ function LocalWordle({ navigate, onOnline }) {
   const [round, setRound] = useState(0);
   const [practiceAnswer, setPracticeAnswer] = useState(() => answerList[rand(answerList.length)]);
 
+  const board = useScoreSubmit(DAILY_ID);
+
   const daily = mode === "daily";
   const answer = daily ? dailyPick(answerList, DAILY_ID, day) : practiceAnswer;
   const finished = daily && !!record.done;
+
+  /* The board ranks the longest streak ever reached, not the current one, so
+     what goes up is `best` — and it goes up whenever a daily is finished,
+     win or lose. Sending it after a loss is not a mistake: `best` has not
+     changed, the server keeps the higher of the two, and the resend is what
+     quietly repairs a submission an earlier bad connection swallowed. */
+  const finishedDaily = (won, count) => {
+    const next = finishDaily(DAILY_ID, day, won, won ? String(count) : "X");
+    setRecord(next);
+    if (next.best > 0) board.submit("daily", next.best);
+  };
 
   const nextPractice = () => {
     setPracticeAnswer(answerList[rand(answerList.length)]);
@@ -67,33 +83,46 @@ function LocalWordle({ navigate, onOnline }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-      <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done}
+    /* `width: 100%` is load-bearing. Without it this is a shrink-to-fit flex
+       item, so the tab strip's `maxWidth: 100%` has nothing definite to
+       resolve against and the four-tab strip pushes the whole page sideways
+       on a phone instead of scrolling inside itself. */
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+      <ModeTabs mode={mode} setMode={setMode} dailyDone={!!record.done} gameId={DAILY_ID}
         onFriends={roomServerUrl() ? onOnline : undefined} />
-      {daily && (
+
+      {mode === "board" && (
+        <LeaderboardPanel gameId={DAILY_ID} localBest={() => record.best || null} />
+      )}
+
+      {daily && mode !== "board" && (
         <div style={{ fontSize: "0.78125rem", color: C.dim, marginBottom: 10, textAlign: "center" }}>
           Puzzle #{day}
         </div>
       )}
 
-      <WordleBoard
-        key={daily ? `d${day}` : `p${round}`}
-        answer={answer}
-        initial={daily ? record.board || [] : []}
-        onProgress={daily ? (gs) => saveBoard(DAILY_ID, day, gs) : null}
-        onDone={daily ? (won, count) => setRecord(finishDaily(DAILY_ID, day, won, won ? String(count) : "X")) : null}
-        onNext={daily ? null : nextPractice}
-      />
+      {mode !== "board" && <>
+        <WordleBoard
+          key={daily ? `d${day}` : `p${round}`}
+          answer={answer}
+          initial={daily ? record.board || [] : []}
+          onProgress={daily ? (gs) => saveBoard(DAILY_ID, day, gs) : null}
+          onDone={daily ? finishedDaily : null}
+          onNext={daily ? null : nextPractice}
+        />
 
-      {finished && (
-        /* `title` lands in "Next …", so it wants a noun, not the game's name. */
-        <DailyPanel record={record} day={day} title="puzzle" buildShare={buildShare}
-          buckets={["1", "2", "3", "4", "5", "6"]} caption="Guess distribution" />
-      )}
+        {finished && (
+          /* `title` lands in "Next …", so it wants a noun, not the game's name. */
+          <DailyPanel record={record} day={day} title="puzzle" buildShare={buildShare}
+            buckets={["1", "2", "3", "4", "5", "6"]} caption="Guess distribution" />
+        )}
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
-        {finished && <Btn onClick={() => setMode("practice")}>Keep playing</Btn>}
-      </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          {finished && <Btn onClick={() => setMode("practice")}>Keep playing</Btn>}
+        </div>
+      </>}
+
+      <NamePrompt open={board.needsName} metric="streak" onClose={board.dismiss} />
     </div>
   );
 }

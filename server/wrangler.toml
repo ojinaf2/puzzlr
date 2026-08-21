@@ -19,9 +19,20 @@ class_name = "Directory"
 tag = "v1"
 new_sqlite_classes = ["Room"]
 
+# One instance per game, holding every variant of that game's board. Separate
+# from Room because the lifetimes are opposite: a room is forgotten after half
+# an hour, a leaderboard is meant to outlive everyone who is playing today.
+[[durable_objects.bindings]]
+name = "LEADERBOARDS"
+class_name = "Leaderboard"
+
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Directory"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Leaderboard"]
 
 [observability]
 enabled = true
